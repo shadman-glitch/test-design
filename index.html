@@ -14,34 +14,28 @@
     #canvas-container canvas { display: block; width: 100%; height: 100%; }
     #canvas-container.is-dragging { cursor: grabbing; }
     #canvas-container.is-hovering { cursor: pointer; }
-    .vignette-overlay {
-      position: fixed; inset: 0; pointer-events: none; z-index: 2;
-      background: radial-gradient(ellipse 90% 88% at 50% 50%, rgba(0,0,0,0) 56%, rgba(0,0,0,0.52) 86%, rgba(0,0,0,0.92) 100%);
-    }
 
-    /* Fullscreen Lightbox Modal */
+    /* Lightbox Modal (Static 16:9 picture without animation) */
     .lightbox {
       position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(4, 4, 6, 0.86); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
-      opacity: 0; pointer-events: none; transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      background: rgba(4, 4, 6, 0.88); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+      opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
     }
     .lightbox.open { opacity: 1; pointer-events: auto; }
     .lightbox-close {
       position: fixed; top: 18px; right: 20px; z-index: 45;
       display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; border: none;
       background: rgba(236, 236, 240, 0.94); color: #111; font-family: inherit; font-size: 12px; font-weight: 600;
-      cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.45); transition: transform 0.18s ease, background 0.18s ease;
+      cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.45); transition: background 0.16s ease;
     }
-    .lightbox-close:hover { background: #fff; transform: scale(1.03); }
+    .lightbox-close:hover { background: #fff; }
     .lightbox-stage {
       position: relative; display: flex; align-items: center; justify-content: center;
-      width: min(84vw, 980px); max-height: 78vh;
-      transform: scale(0.94); transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      width: min(84vw, 1020px); max-height: 80vh;
     }
-    .lightbox.open .lightbox-stage { transform: scale(1); }
     .lightbox-card {
-      width: 100%; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 36px 90px rgba(0,0,0,0.85);
+      width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 36px 90px rgba(0,0,0,0.88);
       background: #08080a;
     }
     .lightbox-card canvas { display: block; width: 100%; height: 100%; }
@@ -50,9 +44,9 @@
       width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.16);
       background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       color: #fff; display: grid; place-items: center; cursor: pointer;
-      transition: background 0.2s ease, transform 0.2s ease;
+      transition: background 0.18s ease;
     }
-    .lightbox-nav:hover { background: rgba(255,255,255,0.24); transform: translateY(-50%) scale(1.06); }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.25); }
     .lightbox-prev { left: -56px; }
     .lightbox-next { right: -56px; }
     .lightbox-counter {
@@ -70,7 +64,6 @@
 </head>
 <body>
   <div id="canvas-container"></div>
-  <div class="vignette-overlay"></div>
 
   <div class="lightbox" id="lightbox" aria-hidden="true">
     <button class="lightbox-close" id="lightboxClose" type="button">
@@ -81,7 +74,7 @@
       <button class="lightbox-nav lightbox-prev" id="lightboxPrev" type="button" aria-label="Previous project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <div class="lightbox-card"><canvas id="lightboxCanvas" width="1280" height="800"></canvas></div>
+      <div class="lightbox-card"><canvas id="lightboxCanvas" width="1600" height="900"></canvas></div>
       <button class="lightbox-nav lightbox-next" id="lightboxNext" type="button" aria-label="Next project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>
@@ -96,28 +89,31 @@
     'use strict';
 
     // -------------------------------------------------------------------------
-    // 1. Spiral Configuration & State
+    // 1. Exact Framer "Make it yours" Spiral Parameters
     // -------------------------------------------------------------------------
-    const STEP_ANGLE = 1.03;   // ~59 deg per card along the helix
-    const SPIRAL_PITCH = 1.06; // vertical drop per radian along helix
-    const RADIUS = 3.35;
-    const CARD_W = 2.74;
-    const CARD_H = 1.66;
-    const TOTAL_SLOTS = 16;    // 2 complete cycles of 8 projects = ~2.62 continuous turns
-    const HALF_SPAN = TOTAL_SLOTS * STEP_ANGLE * 0.5;
+    const CARD_COUNT   = 24;
+    const SPIRAL_TURNS = 3.75;
+    const TOTAL_SPAN   = SPIRAL_TURNS * Math.PI * 2;        // 23.5619 rad
+    const STEP_ANGLE   = TOTAL_SPAN / CARD_COUNT;           // 0.9817 rad (56.25 deg)
+    const HALF_SPAN    = TOTAL_SPAN * 0.5;                  // 11.7810 rad
+    const RADIUS       = 4.0;                               // Spiral size 83%
+    const CARD_W       = 2.86;                              // Card gap 28% of slot
+    const CARD_H       = CARD_W / (16 / 9);                 // 16:9 ratio = 1.60875 (Card size 42%)
+    const SPIRAL_PITCH = 0.96;                              // Downward pitch along helix
+    const BASE_SPEED   = 0.45;                              // Speed 0.45
 
     const state = {
-      scrollAngle: -4.25,      // Starts near CBD SEO / HEARTLINE just like 00:00
+      scrollAngle: -4.25,     // Starts showing CBD SEO & HEARTLINE cleanly
       velocity: 0,
-      autoDrift: 0.085,
+      speedFactor: 1.0,       // Smoothly eases 1 -> 0 on front-card hover
+      hoverDimFactor: 0.0,    // Smoothly dims non-hovered cards on hover
       isDragging: false,
       dragDist: 0,
       lastX: 0,
       lastY: 0,
       ndcX: 0,
       ndcY: 0,
-      smoothX: 0,
-      smoothY: 0,
+      pointerInside: false,
       hoveredSlot: null,
       modalOpen: false,
       modalIndex: 0
@@ -198,9 +194,9 @@
     }
 
     // -------------------------------------------------------------------------
-    // 3. Exact 8 Project Artworks (1024x640 logical -> 1024x512 POT WebGL / 1280x800 Modal)
+    // 3. 16:9 Project Artworks (1024x576 logical -> 1024x512 POT / 1600x900 Modal)
     // -------------------------------------------------------------------------
-    const LOG_W = 1024, LOG_H = 640, TEX_W = 1024, TEX_H = 512;
+    const LOG_W = 1024, LOG_H = 576, TEX_W = 1024, TEX_H = 512;
 
     function roundRect(ctx, x, y, w, h, r) {
       const rr = Math.min(r, w * 0.5, h * 0.5);
@@ -238,7 +234,6 @@
           g.fillRect(x, 108-bh, 6, bh*0.56); g.fillRect(x+2.5, 108-bh-10, 1, bh*0.74);
         });
       } else {
-        // Warm editorial lifestyle duo photo for Network / Net-worth
         bg.addColorStop(0, '#c89b7b'); bg.addColorStop(0.55, '#6b4735'); bg.addColorStop(1, '#1e1612');
         g.fillStyle = bg; g.fillRect(0,0,120,120);
         const l1 = g.createRadialGradient(44,44,4,44,50,48); l1.addColorStop(0,'#f5d0b5'); l1.addColorStop(1,'rgba(0,0,0,0)');
@@ -247,270 +242,225 @@
         g.beginPath(); g.ellipse(36,96,26,34,0,0,Math.PI*2); g.fill();
         g.fillStyle = '#2d221c'; g.beginPath(); g.arc(82,48,15,0,Math.PI*2); g.fill();
         g.beginPath(); g.ellipse(84,96,25,32,0,0,Math.PI*2); g.fill();
-        g.fillStyle = '#f5f5f4'; g.fillRect(52,72,18,22); // cup
+        g.fillStyle = '#f5f5f4'; g.fillRect(52,72,18,22);
       }
       return c;
     }
 
     const thumbs = {
-      suit: makeThumb('suit'),
-      fitness: makeThumb('fitness'),
-      mindset: makeThumb('mindset'),
-      trading: makeThumb('trading'),
-      coffee: makeThumb('coffee')
+      suit: makeThumb('suit'), fitness: makeThumb('fitness'), mindset: makeThumb('mindset'),
+      trading: makeThumb('trading'), coffee: makeThumb('coffee')
     };
 
     const projects = [
       // 1 / 8 : No sigas, lidera
       function drawNoSigas(ctx, w, h) {
         ctx.fillStyle = '#07080a'; ctx.fillRect(0, 0, w, h);
-        // Subtle mountain silhouettes at bottom
-        const sky = ctx.createRadialGradient(w*0.50, h*0.46, 30, w*0.50, h*0.46, 380);
+        const sky = ctx.createRadialGradient(w*0.50, h*0.44, 30, w*0.50, h*0.44, 340);
         sky.addColorStop(0, 'rgba(255,255,255,0.22)'); sky.addColorStop(0.45, 'rgba(148,163,184,0.08)'); sky.addColorStop(1, 'rgba(7,8,10,0)');
         ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
 
-        // Glowing circular aura ring behind sage
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.62)'; ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = 4;
         ctx.shadowColor = '#fff'; ctx.shadowBlur = 22;
-        ctx.beginPath(); ctx.arc(w*0.51, h*0.43, 148, Math.PI*0.95, Math.PI*2.05); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w*0.51, h*0.42, 134, Math.PI*0.95, Math.PI*2.05); ctx.stroke();
         ctx.restore();
 
-        // Rugged mountain horizon
         ctx.fillStyle = '#0d0f14';
         ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.78); ctx.lineTo(w*0.18, h*0.64); ctx.lineTo(w*0.36, h*0.74);
         ctx.lineTo(w*0.52, h*0.58); ctx.lineTo(w*0.72, h*0.72); ctx.lineTo(w*0.88, h*0.62); ctx.lineTo(w, h*0.76); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
 
-        // Bearded figure silhouette illuminated by glowing orb in center
         ctx.fillStyle = '#181a20';
-        ctx.beginPath(); ctx.ellipse(w*0.51, h*0.68, 118, 145, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(w*0.51, h*0.37, 46, 0, Math.PI*2); ctx.fill();
-        // Hair & beard highlights
-        const faceGlow = ctx.createRadialGradient(w*0.51, h*0.54, 6, w*0.51, h*0.44, 130);
+        ctx.beginPath(); ctx.ellipse(w*0.51, h*0.68, 108, 132, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(w*0.51, h*0.36, 42, 0, Math.PI*2); ctx.fill();
+        const faceGlow = ctx.createRadialGradient(w*0.51, h*0.53, 6, w*0.51, h*0.43, 120);
         faceGlow.addColorStop(0, 'rgba(255,255,255,0.98)'); faceGlow.addColorStop(0.22, 'rgba(226,232,240,0.65)'); faceGlow.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = faceGlow; ctx.beginPath(); ctx.arc(w*0.51, h*0.46, 130, 0, Math.PI*2); ctx.fill();
-        // Radiant orb held in hands
-        const orb = ctx.createRadialGradient(w*0.51, h*0.56, 2, w*0.51, h*0.56, 62);
+        ctx.fillStyle = faceGlow; ctx.beginPath(); ctx.arc(w*0.51, h*0.45, 120, 0, Math.PI*2); ctx.fill();
+        const orb = ctx.createRadialGradient(w*0.51, h*0.55, 2, w*0.51, h*0.55, 56);
         orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.32, 'rgba(255,255,255,0.75)'); orb.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(w*0.51, h*0.56, 62, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(w*0.51, h*0.55, 56, 0, Math.PI*2); ctx.fill();
 
-        // Top nav mark & Left Serif Headline
         ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '600 13px Inter, sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('▲  KAIROS', 52, 42);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('▲  KAIROS', 52, 36);
+        ctx.fillStyle = '#f8fafc'; ctx.font = '500 78px "Playfair Display", Georgia, serif';
+        ctx.fillText('No sigas,', 52, 200); ctx.fillText('lidera', 52, 282);
 
-        ctx.fillStyle = '#f8fafc'; ctx.font = '500 84px "Playfair Display", Georgia, serif';
-        ctx.fillText('No sigas,', 52, 232); ctx.fillText('lidera', 52, 322);
-
-        // Right paragraph
-        ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 17px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 16px Inter, sans-serif';
         ['En cada decisión está el poder de', 'transformar tu destino. Atrévete a', 'pensar distinto y trazar un camino', 'propio hacia la grandeza.'].forEach((ln, i) => {
-          ctx.fillText(ln, w - 345, 290 + i*25);
+          ctx.fillText(ln, w - 338, 260 + i*24);
         });
       },
 
       // 2 / 8 : MASTER 440 FSS
       function drawMaster440(ctx, w, h) {
         ctx.fillStyle = '#090a0d'; ctx.fillRect(0, 0, w, h);
-        // Top minimal header bar
         ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = '700 13px Inter, sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('JM SOMME', 48, 34);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('JM SOMME', 48, 28);
         ctx.fillStyle = 'rgba(255,255,255,0.42)'; ctx.font = '500 10px Inter, sans-serif';
-        ctx.textAlign = 'center'; ctx.fillText('OUR STORY     CANAL INFO     ABOUT US     CONTACTS', w*0.5, 36);
-        ctx.textAlign = 'right'; ctx.fillText('REQUEST A QUOTE', w - 48, 36);
+        ctx.textAlign = 'center'; ctx.fillText('OUR STORY     CANAL INFO     ABOUT US     CONTACTS', w*0.5, 30);
+        ctx.textAlign = 'right'; ctx.fillText('REQUEST A QUOTE', w - 48, 30);
 
-        // Giant Headline
-        ctx.fillStyle = '#ffffff'; ctx.font = '800 102px Inter, sans-serif';
-        ctx.textAlign = 'left'; ctx.fillText('MASTER 440 FSS', 48, 108);
+        ctx.fillStyle = '#ffffff'; ctx.font = '800 100px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.fillText('MASTER 440 FSS', 48, 92);
 
-        // Center Industrial Machine Cutout Panel
-        ctx.fillStyle = '#f1f3f6';
-        roundRect(ctx, 295, 224, 445, 416, 4); ctx.fill();
-        // Machine body
-        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(350, 260, 225, 300);
-        ctx.fillStyle = '#1e293b'; ctx.fillRect(358, 274, 96, 162);
-        // Blue accent pillars & stainless steel mechanism
-        ctx.fillStyle = '#0284c7'; ctx.fillRect(458, 274, 42, 162);
-        ctx.fillStyle = '#0369a1'; ctx.fillRect(500, 310, 62, 126);
-        ctx.fillStyle = '#334155'; ctx.fillRect(575, 438, 120, 74); // conveyor extension
+        ctx.fillStyle = '#f1f3f6'; roundRect(ctx, 295, 198, 445, 378, 4); ctx.fill();
+        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(350, 230, 225, 275);
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(358, 242, 96, 150);
+        ctx.fillStyle = '#0284c7'; ctx.fillRect(458, 242, 42, 150);
+        ctx.fillStyle = '#0369a1'; ctx.fillRect(500, 276, 62, 116);
+        ctx.fillStyle = '#334155'; ctx.fillRect(575, 396, 120, 68);
         ctx.fillStyle = '#64748b';
-        for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) ctx.fillRect(584 + c*13, 450 + r*12, 8, 8);
-        ctx.fillStyle = '#0f172a'; ctx.font = '700 15px Inter, sans-serif'; ctx.fillText('MASTER', 420, 520);
-        ctx.fillStyle = '#334155'; ctx.font = '600 18px Inter, sans-serif'; ctx.fillText('somme.com', 475, 578);
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) ctx.fillRect(584 + c*13, 408 + r*11, 8, 7);
+        ctx.fillStyle = '#0f172a'; ctx.font = '700 15px Inter, sans-serif'; ctx.fillText('MASTER', 420, 472);
+        ctx.fillStyle = '#334155'; ctx.font = '600 18px Inter, sans-serif'; ctx.fillText('somme.com', 475, 524);
 
-        // Left & Right metadata
         ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '500 12px Inter, sans-serif';
-        ctx.fillText('Irregular can seamer', 48, 250);
-        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 19px Inter, sans-serif';
-        ["The world's most", "widely used irregular", "can seaming machine"].forEach((ln, i) => ctx.fillText(ln, 48, 495 + i*26));
+        ctx.fillText('Irregular can seamer', 48, 222);
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 18px Inter, sans-serif';
+        ["The world's most", "widely used irregular", "can seaming machine"].forEach((ln, i) => ctx.fillText(ln, 48, 444 + i*24));
 
         ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 13px Inter, sans-serif';
         ['Easy seam adjustment  01', 'Up to 100 cans/minute  02', 'Excellent seaming quality  03', 'Heavy-duty build  04'].forEach((ln, i) => {
-          ctx.fillText(ln, w - 235, 326 + i*40);
-          ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.moveTo(w - 235, 352 + i*40); ctx.lineTo(w - 48, 352 + i*40); ctx.stroke();
+          ctx.fillText(ln, w - 235, 292 + i*38);
+          ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.moveTo(w - 235, 316 + i*38); ctx.lineTo(w - 48, 316 + i*38); ctx.stroke();
         });
       },
 
-      // 3 / 8 : Network / Net-worth (White Card)
+      // 3 / 8 : Network / Net-worth
       function drawNetwork(ctx, w, h) {
-        ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
         const bg = ctx.createLinearGradient(0, 0, w, h);
         bg.addColorStop(0, '#ffffff'); bg.addColorStop(1, '#e8e8ed');
         ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
 
-        // Left text
-        ctx.fillStyle = '#18181b'; ctx.font = '400 56px Inter, sans-serif';
+        ctx.fillStyle = '#18181b'; ctx.font = '400 54px Inter, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
         ctx.fillText('Network', 72, h*0.46);
         ctx.fillStyle = '#71717a'; ctx.font = '400 16px Inter, sans-serif';
-        ctx.fillText('At LatticeClub', 74, h*0.55);
+        ctx.fillText('At LatticeClub', 74, h*0.56);
 
-        // Center editorial photograph
-        const pw = 210, ph = 290, px = (w - pw)*0.5, py = (h - ph)*0.5;
+        const pw = 200, ph = 270, px = (w - pw)*0.5, py = (h - ph)*0.5;
         ctx.save(); roundRect(ctx, px, py, pw, ph, 14); ctx.clip();
-        ctx.drawImage(thumbs.coffee, px, py, pw, ph);
-        ctx.restore();
-        // Play badge icon in photo center
-        ctx.fillStyle = 'rgba(255,255,255,0.88)';
-        roundRect(ctx, w*0.5 - 16, h*0.5 - 16, 32, 32, 8); ctx.fill();
+        ctx.drawImage(thumbs.coffee, px, py, pw, ph); ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; roundRect(ctx, w*0.5 - 16, h*0.5 - 16, 32, 32, 8); ctx.fill();
         ctx.fillStyle = '#18181b'; ctx.beginPath(); ctx.moveTo(w*0.5-4, h*0.5-6); ctx.lineTo(w*0.5+7, h*0.5); ctx.lineTo(w*0.5-4, h*0.5+6); ctx.closePath(); ctx.fill();
 
-        // Right text
-        ctx.fillStyle = '#18181b'; ctx.font = '400 56px Inter, sans-serif';
-        ctx.textAlign = 'left';
+        ctx.fillStyle = '#18181b'; ctx.font = '400 54px Inter, sans-serif'; ctx.textAlign = 'left';
         ctx.fillText('Net-worth', w*0.64, h*0.46);
         ctx.fillStyle = '#71717a'; ctx.font = '400 16px Inter, sans-serif';
-        ctx.fillText('Connect, grow, succeed', w*0.64 + 2, h*0.55);
+        ctx.fillText('Connect, grow, succeed', w*0.64 + 2, h*0.56);
       },
 
-      // 4 / 8 : Péče o pleť na míru (Warm Skincare Card)
+      // 4 / 8 : Péče o pleť na míru
       function drawSkincare(ctx, w, h) {
         const bg = ctx.createLinearGradient(0, 0, w, h);
         bg.addColorStop(0, '#16100c'); bg.addColorStop(0.55, '#3b2619'); bg.addColorStop(1, '#7a5438');
         ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
 
-        // Warm portrait glow on right
-        const glow = ctx.createRadialGradient(w*0.68, h*0.48, 20, w*0.68, h*0.52, 340);
+        const glow = ctx.createRadialGradient(w*0.68, h*0.48, 20, w*0.68, h*0.52, 310);
         glow.addColorStop(0, '#f3c6a5'); glow.addColorStop(0.45, '#b87d56'); glow.addColorStop(1, 'rgba(22,16,12,0)');
         ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
 
-        // Woman silhouette / face portrait on right
-        ctx.fillStyle = '#241610';
-        ctx.beginPath(); ctx.ellipse(w*0.67, h*0.46, 130, 175, 0.05, 0, Math.PI*2); ctx.fill(); // hair
-        const skin = ctx.createRadialGradient(w*0.66, h*0.42, 10, w*0.66, h*0.46, 135);
+        ctx.fillStyle = '#241610'; ctx.beginPath(); ctx.ellipse(w*0.67, h*0.46, 122, 162, 0.05, 0, Math.PI*2); ctx.fill();
+        const skin = ctx.createRadialGradient(w*0.66, h*0.42, 10, w*0.66, h*0.46, 125);
         skin.addColorStop(0, '#f5cbb0'); skin.addColorStop(0.75, '#c98e6b'); skin.addColorStop(1, '#82523a');
         ctx.fillStyle = skin;
-        ctx.beginPath(); ctx.ellipse(w*0.66, h*0.45, 84, 108, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(w*0.67, h*0.86, 175, 130, 0, 0, Math.PI*2); ctx.fill();
-        // Facial warmth highlights
+        ctx.beginPath(); ctx.ellipse(w*0.66, h*0.45, 78, 98, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(w*0.67, h*0.87, 165, 118, 0, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = 'rgba(72,40,28,0.65)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(w*0.63, h*0.42, 12, 0.2, Math.PI-0.2); ctx.stroke();
-        ctx.beginPath(); ctx.arc(w*0.70, h*0.42, 12, 0.2, Math.PI-0.2); ctx.stroke();
-        ctx.strokeStyle = 'rgba(180,95,78,0.8)'; ctx.beginPath(); ctx.arc(w*0.66, h*0.50, 22, 0.2, Math.PI-0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w*0.63, h*0.42, 11, 0.2, Math.PI-0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w*0.70, h*0.42, 11, 0.2, Math.PI-0.2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(180,95,78,0.8)'; ctx.beginPath(); ctx.arc(w*0.66, h*0.50, 20, 0.2, Math.PI-0.2); ctx.stroke();
 
-        // Amber serum dropper bottle in hand at bottom-right
-        ctx.fillStyle = '#1c100a'; roundRect(ctx, w*0.79, h*0.48, 66, 145, 14); ctx.fill();
-        ctx.fillStyle = '#f59e0b'; roundRect(ctx, w*0.805, h*0.55, 36, 70, 6); ctx.fill();
-        ctx.fillStyle = '#09090b'; roundRect(ctx, w*0.805, h*0.41, 36, 48, 8); ctx.fill();
+        ctx.fillStyle = '#1c100a'; roundRect(ctx, w*0.79, h*0.48, 62, 134, 14); ctx.fill();
+        ctx.fillStyle = '#f59e0b'; roundRect(ctx, w*0.805, h*0.55, 34, 66, 6); ctx.fill();
+        ctx.fillStyle = '#09090b'; roundRect(ctx, w*0.805, h*0.41, 34, 44, 8); ctx.fill();
 
-        // Left Czech Serif Copy + Pill CTA
         ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = '500 12px Inter, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('VERA SKIN STUDIO', w*0.5, 28);
-
-        ctx.fillStyle = '#f8f5f0'; ctx.font = '500 58px "Playfair Display", Georgia, serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('Péče o pleť na', 56, 185);
-        ctx.fillText('míru. Výsledky,', 56, 250);
-        ctx.fillText('které uvidíš', 56, 315);
-
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('VERA SKIN STUDIO', w*0.5, 24);
+        ctx.fillStyle = '#f8f5f0'; ctx.font = '500 54px "Playfair Display", Georgia, serif'; ctx.textAlign = 'left';
+        ctx.fillText('Péče o pleť na', 56, 155); ctx.fillText('míru. Výsledky,', 56, 214); ctx.fillText('které uvidíš', 56, 273);
         ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 15px Inter, sans-serif';
-        ctx.fillText('Individuální kosmetické rituály pro', 56, 405);
-        ctx.fillText('přirozenou zářivost vaší pleti.', 56, 428);
-
-        ctx.fillStyle = '#f5f0e8'; roundRect(ctx, 56, 515, 152, 42, 21); ctx.fill();
+        ctx.fillText('Individuální kosmetické rituály pro', 56, 358);
+        ctx.fillText('přirozenou zářivost vaší pleti.', 56, 380);
+        ctx.fillStyle = '#f5f0e8'; roundRect(ctx, 56, 460, 152, 40, 20); ctx.fill();
         ctx.fillStyle = '#1c140e'; ctx.font = '600 13px Inter, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Rezervovat péči', 132, 536);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Rezervovat péči', 132, 480);
       },
 
-      // 5 / 8 : CBD SEO (Wireframe Chess Pieces + 3 Columns, exact match to 00:02)
+      // 5 / 8 : CBD SEO (Wireframe Chess Pieces + 3 Columns)
       function drawCbdSeo(ctx, w, h) {
         ctx.fillStyle = '#080a09'; ctx.fillRect(0, 0, w, h);
-        const amb = ctx.createRadialGradient(w*0.28, h*0.44, 20, w*0.30, h*0.44, 340);
+        const amb = ctx.createRadialGradient(w*0.28, h*0.44, 20, w*0.30, h*0.44, 320);
         amb.addColorStop(0, 'rgba(34,197,94,0.20)'); amb.addColorStop(1, 'rgba(8,10,9,0)');
         ctx.fillStyle = amb; ctx.fillRect(0, 0, w, h);
 
-        // Two glowing green 3D wireframe chess pieces (Queen & King)
-        const drawChessPiece = (cx, cy, scale, rot, isKing) => {
+        const drawChess = (cx, cy, scale, rot, isKing) => {
           ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(scale, scale);
           ctx.strokeStyle = 'rgba(74, 222, 128, 0.78)'; ctx.lineWidth = 1.6;
           ctx.fillStyle = 'rgba(34, 197, 94, 0.14)';
           ctx.beginPath();
-          ctx.moveTo(-42, 130); ctx.lineTo(42, 130); ctx.lineTo(36, 108); ctx.lineTo(18, 86);
-          ctx.quadraticCurveTo(10, 10, 22, -48); ctx.lineTo(32, -62); ctx.lineTo(20, -82);
-          ctx.lineTo(0, -110); ctx.lineTo(-20, -82); ctx.lineTo(-32, -62); ctx.lineTo(-22, -48);
-          ctx.quadraticCurveTo(-10, 10, -18, 86); ctx.lineTo(-36, 108); ctx.closePath();
+          ctx.moveTo(-40, 120); ctx.lineTo(40, 120); ctx.lineTo(34, 98); ctx.lineTo(17, 78);
+          ctx.quadraticCurveTo(9, 10, 20, -44); ctx.lineTo(30, -56); ctx.lineTo(18, -74);
+          ctx.lineTo(0, -100); ctx.lineTo(-18, -74); ctx.lineTo(-30, -56); ctx.lineTo(-20, -44);
+          ctx.quadraticCurveTo(-9, 10, -17, 78); ctx.lineTo(-34, 98); ctx.closePath();
           ctx.fill(); ctx.stroke();
-
-          // Horizontal wireframe rings & vertical ribs
-          for (let y = -70; y <= 110; y += 26) {
-            const rx = y > 80 ? 34 : (y < -40 ? 22 : 16);
-            ctx.beginPath(); ctx.ellipse(0, y, rx, 6, 0, 0, Math.PI*2); ctx.stroke();
+          for (let y = -64; y <= 102; y += 24) {
+            const rx = y > 72 ? 32 : (y < -36 ? 20 : 15);
+            ctx.beginPath(); ctx.ellipse(0, y, rx, 5.5, 0, 0, Math.PI*2); ctx.stroke();
           }
-          ctx.beginPath(); ctx.moveTo(0, -110); ctx.lineTo(0, 130); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, -100); ctx.lineTo(0, 120); ctx.stroke();
           if (isKing) {
-            ctx.lineWidth = 2.6;
-            ctx.beginPath(); ctx.moveTo(0, -112); ctx.lineTo(0, -138); ctx.moveTo(-11, -126); ctx.lineTo(11, -126); ctx.stroke();
+            ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(0,-102); ctx.lineTo(0,-128); ctx.moveTo(-10,-116); ctx.lineTo(10,-116); ctx.stroke();
           } else {
-            ctx.beginPath(); ctx.arc(0, -118, 8, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, -108, 7.5, 0, Math.PI*2); ctx.stroke();
           }
           ctx.restore();
         };
 
-        drawChessPiece(w*0.24, h*0.38, 1.05, -0.45, false);
-        drawChessPiece(w*0.37, h*0.36, 1.22, 0.22, true);
+        drawChess(w*0.24, h*0.36, 0.98, -0.45, false);
+        drawChess(w*0.37, h*0.35, 1.14, 0.22, true);
 
-        // Right Bold Condensed Strategy Headline
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.font = '800 62px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.font = '800 56px "Anton", "Bebas Neue", Impact, sans-serif';
         const tx = w*0.49;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText('CBD SEO', tx, 54); ctx.fillText("IT'S NOT JUST", tx, 118); ctx.fillText("TRAFFIC - IT'S", tx, 182);
+        ctx.fillStyle = '#fff';
+        ctx.fillText('CBD SEO', tx, 42); ctx.fillText("IT'S NOT JUST", tx, 100); ctx.fillText("TRAFFIC - IT'S", tx, 158);
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('YOUR GROWTH', tx, 246); ctx.fillText('STRATEGY', tx, 310);
+        ctx.fillText('YOUR GROWTH', tx, 216); ctx.fillText('STRATEGY', tx, 274);
 
-        ctx.fillStyle = 'rgba(255,255,255,0.62)'; ctx.font = '500 12px Inter, sans-serif';
-        ctx.fillText('// CBD AND HEMP BRANDS CONSTANTLY FACE CHALLENGES:', tx, 392);
+        ctx.fillStyle = 'rgba(255,255,255,0.62)'; ctx.font = '500 11.5px Inter, sans-serif';
+        ctx.fillText('// CBD AND HEMP BRANDS CONSTANTLY FACE CHALLENGES:', tx, 348);
 
-        // Divider + 3 exact columns from 00:02
         ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(56, h - 155); ctx.lineTo(w - 56, h - 155); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(56, h - 140); ctx.lineTo(w - 56, h - 140); ctx.stroke();
 
-        const cols = [
+        [
           ['SPEND THOUSANDS ON SEO', 'WITH NO RESULTS', '01  //'],
           ['THERE IS TRAFFIC,', 'BUT NO SALES', '02  //'],
           ['LOSS OF RANKING AFTER', 'ALGORITHM UPDATE', '03  //']
-        ];
-        cols.forEach(([l1, l2, num], i) => {
+        ].forEach(([l1, l2, num], i) => {
           const cx = 74 + i * 310;
-          ctx.fillStyle = 'rgba(74, 222, 128, 0.85)'; ctx.beginPath(); ctx.arc(cx + 12, h - 110, 12, 0, Math.PI*2); ctx.stroke();
-          ctx.fillStyle = '#e5e7eb'; ctx.font = '600 13px Inter, sans-serif';
-          ctx.fillText(l1, cx + 36, h - 122); ctx.fillText(l2, cx + 36, h - 104);
+          ctx.strokeStyle = 'rgba(74,222,128,0.85)'; ctx.beginPath(); ctx.arc(cx + 12, h - 96, 11, 0, Math.PI*2); ctx.stroke();
+          ctx.fillStyle = '#e5e7eb'; ctx.font = '600 12.5px Inter, sans-serif';
+          ctx.fillText(l1, cx + 34, h - 108); ctx.fillText(l2, cx + 34, h - 90);
           ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.font = '500 11px Inter, sans-serif';
-          ctx.fillText(num, cx + 36, h - 76);
+          ctx.fillText(num, cx + 34, h - 64);
         });
       },
 
       // 6 / 8 : HEARTLINE
       function drawHeartline(ctx, w, h) {
         ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, w, h);
-        const glow = ctx.createRadialGradient(w*0.56, h*0.62, 10, w*0.54, h*0.58, 360);
+        const glow = ctx.createRadialGradient(w*0.56, h*0.62, 10, w*0.54, h*0.58, 340);
         glow.addColorStop(0, 'rgba(255,42,24,0.85)'); glow.addColorStop(0.32, 'rgba(185,16,12,0.45)');
         glow.addColorStop(0.7, 'rgba(65,4,6,0.16)'); glow.addColorStop(1, 'rgba(5,5,7,0)');
         ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
 
         ctx.save();
-        ctx.fillStyle = '#fff'; ctx.font = '900 164px "Anton", "Bebas Neue", Impact, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.scale(1.06, 0.94);
-        ctx.fillText('HEARTLINE', (w/1.06)*0.5, 24);
+        ctx.fillStyle = '#fff'; ctx.font = '900 156px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.scale(1.06, 0.90);
+        ctx.fillText('HEARTLINE', (w/1.06)*0.5, 20);
         ctx.restore();
 
         const bg = ctx.createLinearGradient(w*0.34, h*0.28, w*0.68, h*0.96);
@@ -526,22 +476,22 @@
         ctx.strokeStyle = 'rgba(255,220,200,0.95)'; ctx.lineWidth = 5;
         ctx.beginPath(); ctx.moveTo(w*0.63, h*0.76); ctx.lineTo(w*0.74, h*0.76); ctx.lineTo(w*0.81, h*0.56); ctx.stroke();
 
-        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 20px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 19px Inter, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ['We build sites, brands,', 'and digital experiences', 'that feel alive, intentional,', 'and human.'].forEach((ln, i) => ctx.fillText(ln, 44, 212 + i*27));
+        ['We build sites, brands,', 'and digital experiences', 'that feel alive, intentional,', 'and human.'].forEach((ln, i) => ctx.fillText(ln, 44, 192 + i*25));
 
-        ctx.fillStyle = '#f8f8fa'; roundRect(ctx, 44, h - 134, 226, 76, 10); ctx.fill();
-        ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.arc(76, h - 96, 19, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.arc(76, h - 101, 7, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#111113'; ctx.font = '700 13px Inter, sans-serif'; ctx.fillText('LAURA TIMMONS', 105, h - 115);
-        ctx.fillStyle = '#71717a'; ctx.font = '400 11px Inter, sans-serif'; ctx.fillText('Creative Director', 105, h - 97);
-        ctx.fillStyle = '#ef4444'; ctx.fillRect(105, h - 77, 130, 3);
+        ctx.fillStyle = '#f8f8fa'; roundRect(ctx, 44, h - 120, 224, 74, 10); ctx.fill();
+        ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.arc(76, h - 83, 18, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.arc(76, h - 88, 6.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#111113'; ctx.font = '700 13px Inter, sans-serif'; ctx.fillText('LAURA TIMMONS', 105, h - 101);
+        ctx.fillStyle = '#71717a'; ctx.font = '400 11px Inter, sans-serif'; ctx.fillText('Creative Director', 105, h - 84);
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(105, h - 65, 130, 3);
       },
 
-      // 7 / 8 : Entrepreneurship / Physical Health / Mindset / Trading (White Card)
+      // 7 / 8 : Entrepreneurship / Physical Health / Mindset / Trading
       function drawCategories(ctx, w, h) {
         ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
-        const padX = 56, rowH = (h - 72) / 4, startY = 36;
+        const padX = 56, rowH = (h - 64) / 4, startY = 32;
         ctx.textBaseline = 'middle';
         for (let i = 1; i < 4; i++) {
           ctx.strokeStyle = '#e0e0e5'; ctx.lineWidth = 1.6;
@@ -550,30 +500,30 @@
         const drawThumb = (img, x, y, s) => { ctx.save(); roundRect(ctx, x, y - s/2, s, s, 8); ctx.clip(); ctx.drawImage(img, x, y - s/2, s, s); ctx.restore(); };
         const rows = [
           { num: '01', draw: (cy) => {
-            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            ctx.fillStyle = '#141417'; ctx.font = '500 48px Inter, sans-serif'; ctx.textAlign = 'left';
             ctx.fillText('Entrepreneurship', padX+20, cy);
-            drawThumb(thumbs.suit, padX+20+ctx.measureText('Entrepreneurship').width+18, cy, 52);
+            drawThumb(thumbs.suit, padX+20+ctx.measureText('Entrepreneurship').width+18, cy, 48);
           }},
           { num: '02', draw: (cy) => {
-            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            ctx.fillStyle = '#141417'; ctx.font = '500 48px Inter, sans-serif'; ctx.textAlign = 'left';
             const x0 = padX+95; ctx.fillText('Physical', x0, cy);
             const w1 = ctx.measureText('Physical').width;
-            drawThumb(thumbs.fitness, x0+w1+16, cy, 52); ctx.fillText('Health', x0+w1+84, cy);
+            drawThumb(thumbs.fitness, x0+w1+16, cy, 48); ctx.fillText('Health', x0+w1+80, cy);
           }},
           { num: '03', draw: (cy) => {
-            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
-            const x0 = padX+168; drawThumb(thumbs.mindset, x0, cy, 52); ctx.fillText('Mindset', x0+68, cy);
+            ctx.fillStyle = '#141417'; ctx.font = '500 48px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX+168; drawThumb(thumbs.mindset, x0, cy, 48); ctx.fillText('Mindset', x0+64, cy);
           }},
           { num: '04', draw: (cy) => {
-            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            ctx.fillStyle = '#141417'; ctx.font = '500 48px Inter, sans-serif'; ctx.textAlign = 'left';
             const x0 = padX+220; ctx.fillText('Trading', x0, cy);
-            drawThumb(thumbs.trading, x0+ctx.measureText('Trading').width+16, cy, 52);
+            drawThumb(thumbs.trading, x0+ctx.measureText('Trading').width+16, cy, 48);
           }}
         ];
         rows.forEach((r, idx) => {
           const cy = startY + idx*rowH + rowH*0.5;
           r.draw(cy);
-          ctx.fillStyle = '#d6d6dc'; ctx.font = '300 48px Inter, sans-serif'; ctx.textAlign = 'right';
+          ctx.fillStyle = '#d6d6dc'; ctx.font = '300 46px Inter, sans-serif'; ctx.textAlign = 'right';
           ctx.fillText(r.num, w - padX, cy);
         });
       },
@@ -581,20 +531,20 @@
       // 8 / 8 : IN A RESTRICTED MARKET, SEO IS LEVERAGED
       function drawRestrictedSeo(ctx, w, h) {
         ctx.fillStyle = '#0c0e0d'; ctx.fillRect(0, 0, w, h);
-        const glow = ctx.createRadialGradient(w*0.72, h*0.78, 10, w*0.65, h*0.75, 460);
+        const glow = ctx.createRadialGradient(w*0.72, h*0.78, 10, w*0.65, h*0.75, 420);
         glow.addColorStop(0, 'rgba(52,211,153,0.26)'); glow.addColorStop(1, 'rgba(12,14,13,0)');
         ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
 
-        ctx.fillStyle = 'rgba(167,243,208,0.68)'; ctx.font = '600 14px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(167,243,208,0.68)'; ctx.font = '600 13.5px Inter, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.fillText('MOST AGENCIES AVOID CANNABIS — WE ENGINEER AROUND IT', 64, 68);
-        ctx.fillStyle = '#f8fafc'; ctx.font = '800 76px "Anton", "Bebas Neue", Impact, sans-serif';
-        ctx.fillText('IN A RESTRICTED', 64, 108); ctx.fillText('MARKET, SEO IS', 64, 186);
-        ctx.fillStyle = '#d1fae5'; ctx.fillText('LEVERAGED', 64, 264);
+        ctx.fillText('MOST AGENCIES AVOID CANNABIS — WE ENGINEER AROUND IT', 64, 54);
+        ctx.fillStyle = '#f8fafc'; ctx.font = '800 72px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.fillText('IN A RESTRICTED', 64, 90); ctx.fillText('MARKET, SEO IS', 64, 162);
+        ctx.fillStyle = '#d1fae5'; ctx.fillText('LEVERAGED', 64, 234);
 
-        const count = 44, startX = 64, step = (w - 128) / count, baseY = h - 56;
+        const count = 44, startX = 64, step = (w - 128) / count, baseY = h - 46;
         for (let i = 0; i < count; i++) {
-          const p = i / (count - 1), barH = Math.max(12, Math.pow(p, 2.05) * 235);
+          const p = i / (count - 1), barH = Math.max(12, Math.pow(p, 2.05) * 210);
           const g = ctx.createLinearGradient(0, baseY - barH, 0, baseY);
           g.addColorStop(0, p > 0.7 ? '#ecfdf5' : '#6ee7b7'); g.addColorStop(0.55, '#10b981'); g.addColorStop(1, 'rgba(16,185,129,0.08)');
           ctx.fillStyle = g; ctx.fillRect(startX + i*step, baseY - barH, step*0.56, barH);
@@ -603,7 +553,7 @@
     ];
 
     // -------------------------------------------------------------------------
-    // 4. WebGL Context, Helical Card Mesh & Optical Shader
+    // 4. WebGL Context + Two-Pass FBO Chromatic Edges Pipeline
     // -------------------------------------------------------------------------
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' })
@@ -615,15 +565,29 @@
     container.appendChild(canvas);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.disable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.clearColor(0, 0, 0, 1);
 
     const anisoExt = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
     const maxAniso = anisoExt ? Math.min(8, gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
 
-    const vsSrc = `
+    function compile(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+
+    function createProgram(vs, fs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+      gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(p);
+      return p;
+    }
+
+    // Pass 1: 3D Spiral Cards Shader (10% Corner Radius, 55% Back Fade, Hover Lift & Focus Dim)
+    const cardProg = createProgram(
+      `
       attribute vec3 aPos;
       attribute vec3 aNorm;
       attribute vec2 aUv;
@@ -635,15 +599,15 @@
       varying vec3 vWorldPos;
       void main() {
         vUv = aUv;
-        vec3 displaced = aPos + aNorm * (uHover * 0.22);
+        vec3 scaled = vec3(aPos.x * (1.0 + uHover * 0.032), aPos.y * (1.0 + uHover * 0.032), aPos.z);
+        vec3 displaced = scaled + aNorm * (uHover * 0.20);
         vec4 worldPos = uModel * vec4(displaced, 1.0);
         vWorldPos = worldPos.xyz;
         vNormalWorld = normalize(mat3(uModel) * aNorm);
         gl_Position = uViewProj * worldPos;
       }
-    `;
-
-    const fsSrc = `
+      `,
+      `
       precision highp float;
       varying vec2 vUv;
       varying vec3 vNormalWorld;
@@ -654,99 +618,132 @@
       uniform float uCornerRadius;
       uniform float uFade;
       uniform float uHover;
+      uniform float uDim;
 
       float roundedRectSDF(vec2 p, vec2 b, float r) {
         vec2 d = abs(p) - b + vec2(r);
         return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
       }
 
-      vec3 sampleOpticalBokeh(sampler2D tex, vec2 uv, float blurAmt, float chromaAmt) {
-        if (blurAmt < 0.02 && chromaAmt < 0.0005) return texture2D(tex, uv).rgb;
-        vec3 accum = vec3(0.0);
-        float total = 0.0;
-        for (int i = -3; i <= 3; i++) {
-          float fi = float(i);
-          float w = 1.0 - abs(fi) * 0.20;
-          vec2 tb = uv + vec2(fi * blurAmt * 0.0068, fi * blurAmt * 0.0022);
-          vec2 uvR = clamp(tb + vec2(chromaAmt, chromaAmt * 0.18), vec2(0.002), vec2(0.998));
-          vec2 uvG = clamp(tb, vec2(0.002), vec2(0.998));
-          vec2 uvB = clamp(tb - vec2(chromaAmt, chromaAmt * 0.18), vec2(0.002), vec2(0.998));
-          accum.r += texture2D(tex, uvR).r * w;
-          accum.g += texture2D(tex, uvG).g * w;
-          accum.b += texture2D(tex, uvB).b * w;
-          total += w;
-        }
-        return accum / total;
-      }
-
       void main() {
         vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
         vec2 b = vec2(uAspect * 0.5, 0.5);
         float dist = roundedRectSDF(p, b, uCornerRadius);
-        float edgeAlpha = 1.0 - smoothstep(-0.0045, 0.0045, dist);
+        float edgeAlpha = 1.0 - smoothstep(-0.004, 0.004, dist);
         if (edgeAlpha < 0.03 || uFade < 0.01) discard;
 
         vec3 viewDir = normalize(uCamPos - vWorldPos);
         vec3 nrm = normalize(vNormalWorld);
         float facing = dot(nrm, viewDir);
-        float isBack = step(facing, 0.0);
-        float grazing = 1.0 - clamp(abs(facing), 0.0, 1.0);
+        float isBack = smoothstep(0.08, -0.08, facing);
 
-        // Front center is razor sharp; grazing flanks and back faces get authentic RGB dispersion + optical bokeh
-        float edgeBlur = smoothstep(0.18, 0.88, grazing);
-        float blurAmt = mix(edgeBlur * 1.15, 0.95 + 0.85 * grazing, isBack);
-        float chromaAmt = mix(edgeBlur * 0.014, 0.011 + 0.011 * grazing, isBack);
+        vec3 color = texture2D(uMap, vUv).rgb;
 
-        vec3 color = sampleOpticalBokeh(uMap, vUv, blurAmt, chromaAmt);
+        // Subtle luminous edge ring when hovered so card feels ready to click
+        float borderGlow = smoothstep(-0.025, -0.002, dist) * edgeAlpha * uHover * 0.25;
+        color += vec3(borderGlow);
 
-        float rim = smoothstep(0.45, 0.92, grazing) * 0.08 * (1.0 - isBack);
-        color += vec3(rim);
-        color *= (1.0 + uHover * 0.08);
-
-        // Back side gently dims into atmospheric depth just like the Framer video
-        float backDim = mix(1.0, 0.72 - 0.22 * grazing, isBack);
-        float alpha = edgeAlpha * uFade;
-        gl_FragColor = vec4(color * backDim * alpha, alpha);
+        // Back fade 55% => back side fades to 45% opacity/brightness
+        float backAlpha = mix(1.0, 0.45, isBack);
+        float alpha = edgeAlpha * uFade * backAlpha * uDim;
+        gl_FragColor = vec4(color * alpha, alpha);
       }
-    `;
+      `
+    );
 
-    function compile(type, src) {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-      return s;
-    }
-
-    const prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-
-    const loc = {
-      aPos: gl.getAttribLocation(prog, 'aPos'),
-      aNorm: gl.getAttribLocation(prog, 'aNorm'),
-      aUv: gl.getAttribLocation(prog, 'aUv'),
-      uModel: gl.getUniformLocation(prog, 'uModel'),
-      uViewProj: gl.getUniformLocation(prog, 'uViewProj'),
-      uCamPos: gl.getUniformLocation(prog, 'uCamPos'),
-      uMap: gl.getUniformLocation(prog, 'uMap'),
-      uAspect: gl.getUniformLocation(prog, 'uAspect'),
-      uCornerRadius: gl.getUniformLocation(prog, 'uCornerRadius'),
-      uFade: gl.getUniformLocation(prog, 'uFade'),
-      uHover: gl.getUniformLocation(prog, 'uHover')
+    const cLoc = {
+      aPos: gl.getAttribLocation(cardProg, 'aPos'),
+      aNorm: gl.getAttribLocation(cardProg, 'aNorm'),
+      aUv: gl.getAttribLocation(cardProg, 'aUv'),
+      uModel: gl.getUniformLocation(cardProg, 'uModel'),
+      uViewProj: gl.getUniformLocation(cardProg, 'uViewProj'),
+      uCamPos: gl.getUniformLocation(cardProg, 'uCamPos'),
+      uMap: gl.getUniformLocation(cardProg, 'uMap'),
+      uAspect: gl.getUniformLocation(cardProg, 'uAspect'),
+      uCornerRadius: gl.getUniformLocation(cardProg, 'uCornerRadius'),
+      uFade: gl.getUniformLocation(cardProg, 'uFade'),
+      uHover: gl.getUniformLocation(cardProg, 'uHover'),
+      uDim: gl.getUniformLocation(cardProg, 'uDim')
     };
 
-    // Builds one card bent seamlessly along the helical ribbon (py slopes along -pitch * th)
-    function buildHelicalMesh(width, height, radius, pitch, segX = 36, segY = 14) {
+    // Pass 2: Fullscreen Chromatic Edges Post-Process Shader (Edge size 19%, Edge blur 4.5, Spread 15)
+    const postProg = createProgram(
+      `
+      attribute vec2 aPos;
+      varying vec2 vUv;
+      void main() {
+        vUv = aPos * 0.5 + 0.5;
+        gl_Position = vec4(aPos, 0.0, 1.0);
+      }
+      `,
+      `
+      precision highp float;
+      varying vec2 vUv;
+      uniform sampler2D uScene;
+      uniform vec2 uResolution;
+
+      void main() {
+        // Edge size: 19% around outer perimeter of viewport
+        float edgeSize = 0.19;
+        vec2 distToInner = max(vec2(0.0), abs(vUv - 0.5) - (0.5 - edgeSize)) / edgeSize;
+        float edgeMask = smoothstep(0.0, 1.0, length(distToInner));
+
+        if (edgeMask < 0.004) {
+          gl_FragColor = texture2D(uScene, vUv);
+          return;
+        }
+
+        // Radial direction + Chromatic spread: 15 + Edge blur: 4.5
+        vec2 dir = normalize(vUv - 0.5 + vec2(1e-5));
+        vec2 texel = 1.0 / uResolution;
+        float spread = edgeMask * 15.0 * texel.x * 1.45;
+        float blurPx = edgeMask * 4.5 * 2.1;
+
+        vec3 accum = vec3(0.0);
+        float wSum = 0.0;
+        for (int i = -4; i <= 4; i++) {
+          float fi = float(i) / 4.0;
+          float w = 1.0 - abs(fi) * 0.55;
+          vec2 blurOffset = dir * (fi * blurPx * texel);
+          vec2 orthoOffset = vec2(-dir.y, dir.x) * (fi * blurPx * 0.45 * texel);
+          vec2 baseUv = vUv + blurOffset + orthoOffset;
+
+          vec2 uvR = clamp(baseUv + dir * spread, vec2(0.001), vec2(0.999));
+          vec2 uvG = clamp(baseUv, vec2(0.001), vec2(0.999));
+          vec2 uvB = clamp(baseUv - dir * spread, vec2(0.001), vec2(0.999));
+
+          accum.r += texture2D(uScene, uvR).r * w;
+          accum.g += texture2D(uScene, uvG).g * w;
+          accum.b += texture2D(uScene, uvB).b * w;
+          wSum += w;
+        }
+
+        vec3 color = accum / wSum;
+        // Subtle perimeter atmospheric fade
+        color *= (1.0 - 0.24 * edgeMask * edgeMask);
+        gl_FragColor = vec4(color, 1.0);
+      }
+      `
+    );
+
+    const pLoc = {
+      aPos: gl.getAttribLocation(postProg, 'aPos'),
+      uScene: gl.getUniformLocation(postProg, 'uScene'),
+      uResolution: gl.getUniformLocation(postProg, 'uResolution')
+    };
+
+    const quadVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+    // Build curved 16:9 card mesh (level horizontal edges, smooth cylindrical wrap)
+    function buildCurvedMesh(width, height, radius, segX = 36, segY = 12) {
       const verts = [], indices = [], arc = width / radius;
       for (let iy = 0; iy <= segY; iy++) {
-        const fy = iy / segY, ly = (fy - 0.5) * height;
+        const fy = iy / segY, py = (fy - 0.5) * height;
         for (let ix = 0; ix <= segX; ix++) {
           const fx = ix / segX, th = (fx - 0.5) * arc;
           const nx = Math.sin(th), nz = Math.cos(th);
-          const py = ly - pitch * th;
           verts.push(radius * nx, py, radius * nz, nx, 0, nz, fx, fy);
         }
       }
@@ -766,12 +763,10 @@
       return { vbo, ibo, count: indices.length };
     }
 
-    const sharedMesh = buildHelicalMesh(CARD_W, CARD_H, RADIUS, SPIRAL_PITCH);
+    const sharedMesh = buildCurvedMesh(CARD_W, CARD_H, RADIUS);
 
-    // Pre-generate all 8 POT textures (1024x512)
     const projectTex = projects.map((drawFn) => {
-      const c = document.createElement('canvas');
-      c.width = TEX_W; c.height = TEX_H;
+      const c = document.createElement('canvas'); c.width = TEX_W; c.height = TEX_H;
       const ctx = c.getContext('2d');
       ctx.setTransform(1, 0, 0, TEX_H / LOG_H, 0, 0);
       drawFn(ctx, LOG_W, LOG_H);
@@ -803,14 +798,42 @@
       document.fonts.ready.then(refreshAllTextures).catch(() => {});
     }
 
-    // 16 spiral slots wrapping seamlessly around [-HALF_SPAN, +HALF_SPAN]
+    // 24 Card Slots across 3.75 spiral turns (3 cycles of 8 projects)
     const slots = [];
-    for (let i = 0; i < TOTAL_SLOTS; i++) {
+    for (let i = 0; i < CARD_COUNT; i++) {
       slots.push({ index: i, projectIndex: i % 8, relTheta: 0, hoverVal: 0, model: null, depthZ: 0, fade: 1 });
     }
 
+    // Offscreen Framebuffer (FBO) for Post-Process Chromatic Edges
+    let fbo = null, fboTex = null, fboDepth = null, fboReady = false;
+    function setupFBO(w, h) {
+      if (fbo) gl.deleteFramebuffer(fbo);
+      if (fboTex) gl.deleteTexture(fboTex);
+      if (fboDepth) gl.deleteRenderbuffer(fboDepth);
+
+      fboTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, fboTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      fboDepth = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, fboDepth);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+
+      fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex, 0);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepth);
+
+      fboReady = (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
     // -------------------------------------------------------------------------
-    // 5. Analytic Curved Helical Ray Hit-Testing
+    // 5. Exact Front-Card Curved Ray Hit-Testing
     // -------------------------------------------------------------------------
     function hitTestFrontCards(ndcX, ndcY, invVP) {
       const nearPt = unproject(ndcX, ndcY, -1, invVP);
@@ -819,8 +842,7 @@
       let best = null, bestT = Infinity;
 
       for (const slot of slots) {
-        // Only front-facing hero arc is clickable/hoverable
-        if (!slot.model || Math.abs(slot.relTheta) > 1.38) continue;
+        if (!slot.model || Math.abs(slot.relTheta) > 1.35) continue;
         const invM = mat4Invert(slot.model);
         if (!invM) continue;
         const ox = invM[0]*nearPt[0]+invM[4]*nearPt[1]+invM[8]*nearPt[2]+invM[12];
@@ -839,9 +861,7 @@
         const hx = ox + dx*t, hy = oy + dy*t, hz = oz + dz*t;
         if (hz < 0) continue;
         const th = Math.atan2(hx, hz);
-        const halfArc = (CARD_W / RADIUS) * 0.5;
-        const localY = hy + SPIRAL_PITCH * th;
-        if (Math.abs(th) <= halfArc && Math.abs(localY) <= CARD_H * 0.5) {
+        if (Math.abs(th) <= (CARD_W / RADIUS) * 0.5 && Math.abs(hy) <= CARD_H * 0.5) {
           bestT = t;
           best = slot;
         }
@@ -850,7 +870,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // 6. Framer Lightbox Modal Controls
+    // 6. Static Lightbox Viewer (No Animation Inside Picture)
     // -------------------------------------------------------------------------
     const lightbox = document.getElementById('lightbox');
     const lightboxCanvas = document.getElementById('lightboxCanvas');
@@ -859,7 +879,7 @@
 
     function renderLightbox() {
       const idx = ((state.modalIndex % 8) + 8) % 8;
-      lightboxCtx.setTransform(1280 / LOG_W, 0, 0, 800 / LOG_H, 0, 0);
+      lightboxCtx.setTransform(1600 / LOG_W, 0, 0, 900 / LOG_H, 0, 0);
       projects[idx](lightboxCtx, LOG_W, LOG_H);
       lightboxCounter.textContent = (idx + 1) + ' / 8';
     }
@@ -880,18 +900,12 @@
 
     document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
     document.getElementById('lightboxPrev').addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.modalIndex = (state.modalIndex + 7) % 8;
-      renderLightbox();
+      e.stopPropagation(); state.modalIndex = (state.modalIndex + 7) % 8; renderLightbox();
     });
     document.getElementById('lightboxNext').addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.modalIndex = (state.modalIndex + 1) % 8;
-      renderLightbox();
+      e.stopPropagation(); state.modalIndex = (state.modalIndex + 1) % 8; renderLightbox();
     });
-    lightbox.addEventListener('click', (e) => {
-      if (e.target === lightbox) closeLightbox();
-    });
+    lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
     window.addEventListener('keydown', (e) => {
       if (!state.modalOpen) return;
       if (e.key === 'Escape') closeLightbox();
@@ -900,13 +914,16 @@
     });
 
     // -------------------------------------------------------------------------
-    // 7. Pointer, Touch, Wheel & Resize Handlers
+    // 7. Pointer, Touch Drag & Scroll Handlers (NO Camera Mouse Movement)
     // -------------------------------------------------------------------------
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = Math.floor(window.innerWidth * dpr), h = Math.floor(window.innerHeight * dpr);
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-      gl.viewport(0, 0, w, h);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+        setupFBO(w, h);
+      }
     }
     window.addEventListener('resize', resize);
     resize();
@@ -917,12 +934,14 @@
       state.dragDist = 0;
       state.lastX = e.clientX;
       state.lastY = e.clientY;
+      state.pointerInside = true;
       state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
       state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
       container.classList.add('is-dragging');
     });
 
     window.addEventListener('pointermove', (e) => {
+      state.pointerInside = true;
       state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
       state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
       if (!state.isDragging || state.modalOpen) return;
@@ -930,13 +949,14 @@
       const dx = e.clientX - state.lastX;
       const dy = e.clientY - state.lastY;
       state.dragDist += Math.hypot(dx, dy);
-      // Supports natural horizontal or vertical swipe along the spiral
-      const delta = (dx - dy * 0.45) / Math.max(window.innerWidth, 420) * 3.8;
+      const delta = (dx - dy * 0.4) / Math.max(window.innerWidth, 420) * 3.8;
       state.scrollAngle += delta;
       state.velocity = delta * 36;
       state.lastX = e.clientX;
       state.lastY = e.clientY;
     });
+
+    document.addEventListener('mouseleave', () => { state.pointerInside = false; });
 
     const endDrag = () => {
       if (!state.isDragging) return;
@@ -957,7 +977,7 @@
     }, { passive: false });
 
     // -------------------------------------------------------------------------
-    // 8. Animation Loop
+    // 8. Render Loop (Locked Camera + Hover Pause + 2-Pass Optical Pipeline)
     // -------------------------------------------------------------------------
     let prev = performance.now();
     function frame(now) {
@@ -965,45 +985,29 @@
       const dt = Math.min((now - prev) / 1000, 0.05);
       prev = now;
 
-      if (!state.isDragging && !state.modalOpen) {
-        state.scrollAngle += (state.autoDrift + state.velocity) * dt;
-        state.velocity *= Math.pow(0.05, dt);
-      } else if (state.modalOpen) {
-        state.velocity *= Math.pow(0.02, dt);
-      }
-
-      const lAlpha = Math.min(1, dt * 5.0);
-      state.smoothX += (state.ndcX - state.smoothX) * lAlpha;
-      state.smoothY += (state.ndcY - state.smoothY) * lAlpha;
-
       const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-      const camZ = aspect < 1.05 ? 8.45 / Math.max(0.50, aspect * 0.88) : 8.45;
-      const camPos = [-state.smoothX * 0.25, -0.06 + state.smoothY * 0.28, camZ];
+      const camZ = aspect < 1.778 ? 15.2 * Math.min(2.6, 1.778 / Math.max(0.45, aspect)) : 15.2;
+      const camPos = [0, 0, camZ]; // Completely stationary camera (Ring tilt 0 deg)
 
-      const proj = mat4Perspective((38 * Math.PI) / 180, aspect, 0.1, 60);
+      const proj = mat4Perspective((20 * Math.PI) / 180, aspect, 0.2, 80); // Perspective: 20%
       const view = mat4LookAt(camPos, [0, 0, 0], [0, 1, 0]);
       const viewProj = mat4Mul(proj, view);
       const invVP = mat4Invert(viewProj);
 
-      // Gentle camera/stage mouse tilt
-      const stageM = mat4TRS(0, 0, 0, -state.smoothY * 0.08, state.smoothX * 0.10, 0);
-
-      const totalSpan = TOTAL_SLOTS * STEP_ANGLE;
+      // Update 24 card transforms along the 3.75-turn helix
       for (const slot of slots) {
         const raw = slot.index * STEP_ANGLE + state.scrollAngle;
-        const wrapped = ((raw + HALF_SPAN) % totalSpan + totalSpan) % totalSpan - HALF_SPAN;
+        const wrapped = ((raw + HALF_SPAN) % TOTAL_SPAN + TOTAL_SPAN) % TOTAL_SPAN - HALF_SPAN;
         slot.relTheta = wrapped;
-
-        const yPos = -SPIRAL_PITCH * wrapped;
-        slot.model = mat4Mul(stageM, mat4TRS(0, yPos, 0, 0, wrapped, 0));
+        slot.model = mat4TRS(0, -SPIRAL_PITCH * wrapped, 0, 0, wrapped, 0);
         slot.depthZ = slot.model[8] * RADIUS + slot.model[14];
 
-        // Smoothly fade out far beyond +/- 255 deg so wrapping is invisible
         const absT = Math.abs(wrapped);
-        slot.fade = absT < 3.6 ? 1.0 : Math.max(0, 1.0 - (absT - 3.6) / 1.15);
+        slot.fade = absT < 6.5 ? 1.0 : Math.max(0, 1.0 - (absT - 6.5) / 2.2);
       }
 
-      if (!state.isDragging && !state.modalOpen && invVP) {
+      // Check front-card hover
+      if (state.pointerInside && !state.isDragging && !state.modalOpen && invVP) {
         state.hoveredSlot = hitTestFrontCards(state.ndcX, state.ndcY, invVP);
         container.classList.toggle('is-hovering', Boolean(state.hoveredSlot));
       } else {
@@ -1011,36 +1015,83 @@
         container.classList.remove('is-hovering');
       }
 
+      // Smoothly pause on front-card hover (Pause on front-card hover: Checked)
+      const targetSpeedFactor = (state.hoveredSlot && !state.isDragging && !state.modalOpen) ? 0.0 : 1.0;
+      state.speedFactor += (targetSpeedFactor - state.speedFactor) * Math.min(1, dt * 8.5);
+
+      const targetDimFactor = (state.hoveredSlot && !state.isDragging && !state.modalOpen) ? 1.0 : 0.0;
+      state.hoverDimFactor += (targetDimFactor - state.hoverDimFactor) * Math.min(1, dt * 7.5);
+
+      if (!state.isDragging && !state.modalOpen) {
+        state.scrollAngle += (BASE_SPEED * state.speedFactor + state.velocity) * dt;
+        state.velocity *= Math.pow(0.05, dt);
+      } else if (state.modalOpen) {
+        state.velocity *= Math.pow(0.02, dt);
+      }
+
+      // --- PASS 1: Render 3D Spiral into Offscreen FBO (or direct screen if unavailable) ---
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fboReady ? fbo : null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.uniformMatrix4fv(loc.uViewProj, false, viewProj);
-      gl.uniform3fv(loc.uCamPos, camPos);
-      gl.uniform1f(loc.uAspect, CARD_W / CARD_H);
-      gl.uniform1f(loc.uCornerRadius, 0.068);
+
+      gl.useProgram(cardProg);
+      gl.uniformMatrix4fv(cLoc.uViewProj, false, viewProj);
+      gl.uniform3fv(cLoc.uCamPos, camPos);
+      gl.uniform1f(cLoc.uAspect, CARD_W / CARD_H);
+      gl.uniform1f(cLoc.uCornerRadius, 0.10); // Corner radius: 10%
 
       gl.bindBuffer(gl.ARRAY_BUFFER, sharedMesh.vbo);
-      gl.enableVertexAttribArray(loc.aPos);
-      gl.vertexAttribPointer(loc.aPos, 3, gl.FLOAT, false, 32, 0);
-      gl.enableVertexAttribArray(loc.aNorm);
-      gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 32, 12);
-      gl.enableVertexAttribArray(loc.aUv);
-      gl.vertexAttribPointer(loc.aUv, 2, gl.FLOAT, false, 32, 24);
+      gl.enableVertexAttribArray(cLoc.aPos);
+      gl.vertexAttribPointer(cLoc.aPos, 3, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(cLoc.aNorm);
+      gl.vertexAttribPointer(cLoc.aNorm, 3, gl.FLOAT, false, 32, 12);
+      gl.enableVertexAttribArray(cLoc.aUv);
+      gl.vertexAttribPointer(cLoc.aUv, 2, gl.FLOAT, false, 32, 24);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sharedMesh.ibo);
 
       const sorted = slots.slice().sort((a, b) => a.depthZ - b.depthZ);
       for (const slot of sorted) {
         if (slot.fade <= 0.01) continue;
-        const targetH = slot === state.hoveredSlot ? 1.0 : 0.0;
-        slot.hoverVal += (targetH - slot.hoverVal) * Math.min(1, dt * 10);
+        const isHov = (slot === state.hoveredSlot);
+        slot.hoverVal += ((isHov ? 1.0 : 0.0) - slot.hoverVal) * Math.min(1, dt * 10);
 
-        gl.uniformMatrix4fv(loc.uModel, false, slot.model);
-        gl.uniform1f(loc.uFade, slot.fade);
-        gl.uniform1f(loc.uHover, slot.hoverVal);
+        // Gently dim surrounding cards when a front card is hovered
+        const dim = isHov ? 1.0 : (1.0 - 0.36 * state.hoverDimFactor);
+
+        gl.uniformMatrix4fv(cLoc.uModel, false, slot.model);
+        gl.uniform1f(cLoc.uFade, slot.fade);
+        gl.uniform1f(cLoc.uHover, slot.hoverVal);
+        gl.uniform1f(cLoc.uDim, dim);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, projectTex[slot.projectIndex].tex);
-        gl.uniform1i(loc.uMap, 0);
+        gl.uniform1i(cLoc.uMap, 0);
 
         gl.drawElements(gl.TRIANGLES, sharedMesh.count, gl.UNSIGNED_SHORT, 0);
+      }
+
+      // --- PASS 2: Chromatic Edges Post-Process (19% Edge Size, 4.5 Blur, 15 Spread) ---
+      if (fboReady) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+
+        gl.useProgram(postProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
+        gl.enableVertexAttribArray(pLoc.aPos);
+        gl.vertexAttribPointer(pLoc.aPos, 2, gl.FLOAT, false, 0, 0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, fboTex);
+        gl.uniform1i(pLoc.uScene, 0);
+        gl.uniform2f(pLoc.uResolution, canvas.width, canvas.height);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
 
