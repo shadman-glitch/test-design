@@ -2,1940 +2,1151 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Curved Cylindrical Portfolio Showcase — Framer Replica</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Oswald:wght@600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>3D Curved Cylindrical Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-user-select: none;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    #canvas-container { position: fixed; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; z-index: 1; }
+    #canvas-container canvas { display: block; width: 100%; height: 100%; }
+    #canvas-container.is-dragging { cursor: grabbing; }
+    #canvas-container.is-hovering { cursor: pointer; }
+    .vignette-overlay {
+      position: fixed; inset: 0; pointer-events: none; z-index: 2;
+      background: radial-gradient(ellipse 88% 85% at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.55) 88%, rgba(0,0,0,0.92) 100%);
     }
-
-    html, body {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background-color: #000000;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #ffffff;
-    }
-
-    #webgl-container {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-      cursor: grab;
-    }
-
-    #webgl-container.dragging {
-      cursor: grabbing;
-    }
-
-    #webgl-container.hovering-card {
-      cursor: pointer;
-    }
-
-    /* Far-right custom thin scrollbar matching the reference video frame */
-    .video-scrollbar {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 6px;
-      height: 100vh;
-      background: #070707;
-      border-left: 1px solid rgba(255, 255, 255, 0.05);
-      z-index: 40;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      padding: 3px 0;
-    }
-
-    .scroll-arrow {
-      width: 4px;
-      height: 4px;
-      opacity: 0.45;
-      fill: #888;
-    }
-
-    .scroll-track {
-      position: relative;
-      flex: 1;
-      width: 100%;
-      margin: 2px 0;
-    }
-
-    .scroll-thumb {
-      position: absolute;
-      left: 1px;
-      right: 1px;
-      height: 30px;
-      background: rgba(215, 215, 222, 0.78);
-      border-radius: 3px;
-      top: 4px;
-      transition: top 0.08s linear;
-    }
-
-    /* Compact Bottom-Center PHOTO | VIDEO Segmented Toggle Pill (height: 30px, bottom: 16px) */
-    .mode-toggle-wrapper {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 30;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      padding: 3px;
-      border-radius: 999px;
-      background: rgba(210, 215, 226, 0.22);
-      backdrop-filter: blur(20px) saturate(160%);
-      -webkit-backdrop-filter: blur(20px) saturate(160%);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
-    }
-
-    .mode-pill-slider {
-      position: absolute;
-      top: 3px;
-      bottom: 3px;
-      left: 3px;
-      width: calc(50% - 3px);
-      background: #ffffff;
-      border-radius: 999px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-      z-index: 0;
-    }
-
-    .mode-toggle-wrapper[data-mode="video"] .mode-pill-slider {
-      transform: translateX(100%);
-    }
-
-    .mode-btn {
-      position: relative;
-      z-index: 1;
-      border: none;
-      background: transparent;
-      height: 24px;
-      padding: 0 15px;
-      min-width: 58px;
-      border-radius: 999px;
-      font-family: 'Inter', sans-serif;
-      font-size: 9.5px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.25s ease;
-    }
-
-    .mode-btn.active {
-      color: #09090b;
-    }
-
-    .mode-btn.inactive {
-      color: rgba(255, 255, 255, 0.88);
-    }
-
-    /* Compact Bottom-Left Gear Button (24px x 24px, bottom: 16px, left: 16px) */
     .settings-btn {
-      position: fixed;
-      bottom: 16px;
-      left: 16px;
-      z-index: 30;
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-      background: rgba(20, 20, 24, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.55);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      backdrop-filter: blur(10px);
+      position: fixed; left: 24px; bottom: 24px; z-index: 20; width: 38px; height: 38px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.09); background: rgba(18,18,20,0.55);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      display: grid; place-items: center; color: rgba(255,255,255,0.62); cursor: pointer;
+      transition: color 0.25s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1), background 0.25s ease, border-color 0.25s ease;
     }
-
-    .settings-btn:hover {
-      color: rgba(255, 255, 255, 0.95);
-      background: rgba(38, 38, 46, 0.85);
-      transform: rotate(30deg);
+    .settings-btn:hover { color: #fff; background: rgba(34,34,38,0.82); border-color: rgba(255,255,255,0.22); transform: rotate(45deg); }
+    .settings-btn.active { color: #fff; border-color: rgba(255,255,255,0.34); transform: rotate(90deg); }
+    .settings-panel {
+      position: fixed; left: 24px; bottom: 72px; z-index: 25; width: 258px; padding: 16px; border-radius: 16px;
+      background: rgba(16,16,19,0.86); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 48px rgba(0,0,0,0.75);
+      opacity: 0; transform: translateY(10px) scale(0.96); pointer-events: none;
+      transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1);
     }
-
-    /* Compact Bottom-Right Made in Framer Badge (height: 24px, font-size: 10.5px, bottom: 16px, right: 16px) */
+    .settings-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+    .settings-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .settings-reset { font-size: 10px; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); border: none; border-radius: 999px; padding: 3px 9px; cursor: pointer; }
+    .settings-reset:hover { background: rgba(255,255,255,0.18); }
+    .control-row { margin-bottom: 12px; }
+    .control-row:last-child { margin-bottom: 0; }
+    .control-label { display: flex; justify-content: space-between; font-size: 11.5px; color: rgba(255,255,255,0.85); margin-bottom: 5px; }
+    .control-label span.val { color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(255,255,255,0.15); border-radius: 999px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; cursor: pointer; }
+    .mode-pill {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 20;
+      display: inline-flex; align-items: center; padding: 5px; border-radius: 9999px;
+      background: rgba(18,18,20,0.76); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.13); box-shadow: 0 14px 36px rgba(0,0,0,0.65);
+    }
+    .mode-pill-indicator {
+      position: absolute; top: 5px; left: 5px; height: calc(100% - 10px); width: calc(50% - 5px);
+      border-radius: 9999px; background: #fff; box-shadow: 0 2px 10px rgba(255,255,255,0.22);
+      transition: transform 0.42s cubic-bezier(0.22,1,0.36,1); z-index: 0;
+    }
+    .mode-pill[data-mode="video"] .mode-pill-indicator { transform: translateX(100%); }
+    .mode-btn {
+      position: relative; z-index: 1; border: none; background: transparent; min-width: 88px; padding: 11px 22px;
+      border-radius: 9999px; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: rgba(255,255,255,0.64); cursor: pointer; transition: color 0.3s ease;
+    }
+    .mode-btn.active { color: #0b0b0c; }
+    .mode-btn:not(.active):hover { color: rgba(255,255,255,0.92); }
     .framer-badge {
-      position: fixed;
-      bottom: 16px;
-      right: 16px;
-      z-index: 30;
-      height: 24px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: #ffffff;
-      color: #000000;
-      padding: 0 9px;
-      border-radius: 6px;
-      font-family: 'Inter', sans-serif;
-      font-size: 10.5px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
-      text-decoration: none;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: fixed; right: 18px; bottom: 18px; z-index: 20; display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 12px; border-radius: 8px; background: #fff; color: #111; text-decoration: none;
+      font-size: 12px; font-weight: 600; letter-spacing: -0.01em; box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
     }
-
-    .framer-badge:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 22px rgba(255, 255, 255, 0.15);
-    }
-
-    /* Settings Popover Panel */
-    .tuner-panel {
-      position: fixed;
-      bottom: 48px;
-      left: 16px;
-      z-index: 35;
-      width: 256px;
-      padding: 14px;
-      border-radius: 14px;
-      background: rgba(12, 13, 17, 0.92);
-      backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.85);
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(8px) scale(0.97);
-      transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .tuner-panel.open {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0) scale(1);
-    }
-
-    .tuner-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.16);
-      border-radius: 999px;
-      outline: none;
-    }
-
-    .tuner-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #ffffff;
-      cursor: pointer;
+    .framer-badge:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.7); }
+    #fallback-msg { display: none; position: fixed; inset: 0; z-index: 50; place-items: center; text-align: center; padding: 24px; background: #000; color: #ccc; font-size: 14px; }
+    @media (max-width: 600px) {
+      .settings-btn { left: 14px; bottom: 18px; }
+      .framer-badge { right: 14px; bottom: 18px; padding: 6px 10px; font-size: 11px; }
+      .mode-btn { min-width: 72px; padding: 10px 16px; }
     }
   </style>
 </head>
 <body>
+  <div id="canvas-container"></div>
+  <div class="vignette-overlay"></div>
 
-  <!-- 3D WebGL Viewport -->
-  <div id="webgl-container"></div>
-
-  <!-- Custom Far-Right Thin Scrollbar (Matches Video Frame) -->
-  <div class="video-scrollbar" aria-hidden="true">
-    <svg class="scroll-arrow" viewBox="0 0 8 8"><path d="M4 1L7 6H1L4 1Z"/></svg>
-    <div class="scroll-track">
-      <div id="scroll-thumb" class="scroll-thumb"></div>
-    </div>
-    <svg class="scroll-arrow" viewBox="0 0 8 8"><path d="M4 7L1 2H7L4 7Z"/></svg>
-  </div>
-
-  <!-- Compact Bottom-Center PHOTO | VIDEO Segmented Toggle Pill -->
-  <div id="mode-toggle" class="mode-toggle-wrapper" data-mode="photo" role="group" aria-label="Display Mode">
-    <div class="mode-pill-slider"></div>
-    <button id="btn-photo" class="mode-btn active" type="button">PHOTO</button>
-    <button id="btn-video" class="mode-btn inactive" type="button">VIDEO</button>
-  </div>
-
-  <!-- Compact Bottom-Left Settings Button -->
-  <button id="settings-trigger" class="settings-btn" type="button" title="Scale & Timeline Controls">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+  <button class="settings-btn" id="settingsBtn" aria-label="Stage Controls" title="Stage Controls">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
     </svg>
   </button>
 
-  <!-- Floating Scene Tuner Panel (Toggled by Gear Icon) -->
-  <div id="tuner-panel" class="tuner-panel">
-    <div class="flex items-center justify-between mb-2.5">
-      <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">Scene & Scale Tuner</span>
-      <button id="reset-scene-btn" class="text-[10.5px] text-emerald-400 hover:text-emerald-300 font-medium">Reset 00:00</button>
+  <div class="settings-panel" id="settingsPanel" aria-hidden="true">
+    <div class="settings-title">
+      <span>Stage Controls</span>
+      <button class="settings-reset" id="resetBtn" type="button">Reset</button>
     </div>
-
-    <div class="space-y-2.5 text-[11px]">
-      <div>
-        <div class="flex justify-between text-zinc-400 mb-1">
-          <span>Jump to Video Timestamp</span>
-        </div>
-        <div class="grid grid-cols-4 gap-1">
-          <button data-time="0" class="ts-btn bg-white/10 hover:bg-white/20 rounded py-1 text-[10px] font-medium">00:00</button>
-          <button data-time="2" class="ts-btn bg-white/10 hover:bg-white/20 rounded py-1 text-[10px] font-medium">00:02</button>
-          <button data-time="4" class="ts-btn bg-white/10 hover:bg-white/20 rounded py-1 text-[10px] font-medium">00:04</button>
-          <button data-time="6" class="ts-btn bg-white/10 hover:bg-white/20 rounded py-1 text-[10px] font-medium">00:06</button>
-        </div>
-      </div>
-
-      <div>
-        <div class="flex justify-between text-zinc-400 mb-1">
-          <span>Viewport Scale</span>
-          <span id="val-scale">100%</span>
-        </div>
-        <input id="slider-scale" type="range" min="0.65" max="1.30" step="0.01" value="1.00" class="tuner-slider" />
-      </div>
-
-      <div>
-        <div class="flex justify-between text-zinc-400 mb-1">
-          <span>Auto-Orbit Speed</span>
-          <span id="val-speed">1.0x</span>
-        </div>
-        <input id="slider-speed" type="range" min="0" max="2.5" step="0.05" value="1.0" class="tuner-slider" />
-      </div>
-
-      <div>
-        <div class="flex justify-between text-zinc-400 mb-1">
-          <span>Diagonal Tilt Angle</span>
-          <span id="val-tilt">-10.8°</span>
-        </div>
-        <input id="slider-tilt" type="range" min="-22" max="5" step="0.2" value="-10.8" class="tuner-slider" />
-      </div>
-
-      <div>
-        <div class="flex justify-between text-zinc-400 mb-1">
-          <span>Chromatic Dispersion</span>
-          <span id="val-chroma">100%</span>
-        </div>
-        <input id="slider-chroma" type="range" min="0" max="2" step="0.05" value="1.0" class="tuner-slider" />
-      </div>
+    <div class="control-row">
+      <div class="control-label"><span>Auto-Drift</span><span class="val" id="valSpeed">0.14</span></div>
+      <input type="range" id="ctrlSpeed" min="-0.5" max="0.5" step="0.01" value="0.14" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Stage Tilt</span><span class="val" id="valTilt">-12°</span></div>
+      <input type="range" id="ctrlTilt" min="-24" max="24" step="1" value="-12" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Chromatic Blur</span><span class="val" id="valChroma">1.00</span></div>
+      <input type="range" id="ctrlChroma" min="0" max="2" step="0.05" value="1.0" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Parallax Depth</span><span class="val" id="valParallax">1.00</span></div>
+      <input type="range" id="ctrlParallax" min="0" max="2" step="0.05" value="1.0" />
     </div>
   </div>
 
-  <!-- Compact Bottom-Right Made in Framer Badge -->
-  <a href="#framer" onclick="event.preventDefault();" class="framer-badge">
-    <svg width="9" height="13" viewBox="0 0 14 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 0H14V7H7L0 0ZM0 7H7L14 14H7V21L0 14V7Z" fill="#000000"/>
-    </svg>
+  <div class="mode-pill" id="modePill" data-mode="photo" role="tablist" aria-label="Showcase Mode">
+    <div class="mode-pill-indicator"></div>
+    <button class="mode-btn active" id="btnPhoto" type="button" role="tab" aria-selected="true">PHOTO</button>
+    <button class="mode-btn" id="btnVideo" type="button" role="tab" aria-selected="false">VIDEO</button>
+  </div>
+
+  <a class="framer-badge" href="#top" onclick="return false;" aria-label="Made in Framer">
+    <svg width="11" height="16" viewBox="0 0 14 21" fill="none"><path d="M0 0H14V7H7L0 0ZM0 7H7L14 14H0V7ZM0 14H7V21L0 14Z" fill="#111111" /></svg>
     <span>Made in Framer</span>
   </a>
 
+  <div id="fallback-msg"><p>WebGL is required and appears to be disabled in your browser settings.</p></div>
+
   <script>
-    // ============================================================================
-    // 1. HIGH-DPI PROCEDURAL CANVAS TEXTURE GENERATORS (2048 x 1220 — 1.68:1)
-    //    Replicates all 8 cards in the reference video with razor-sharp typography,
-    //    lighting, embedded thumbnails, and live VIDEO mode animations.
-    // ============================================================================
+  (function () {
+    'use strict';
 
-    const CARD_TEX_W = 2048;
-    const CARD_TEX_H = 1220;
+    // -------------------------------------------------------------------------
+    // 1. State
+    // -------------------------------------------------------------------------
+    const state = {
+      mode: 'photo',
+      autoSpeed: 0.14,
+      tiltDeg: -12,
+      currentTiltDeg: -12,
+      chromaScale: 1.0,
+      parallaxScale: 1.0,
+      mainAngle: -1.68,
+      targetAngle: null,
+      velocity: 0,
+      isDragging: false,
+      dragDistance: 0,
+      lastX: 0,
+      ndcX: 0,
+      ndcY: 0,
+      smoothX: 0,
+      smoothY: 0,
+      hoveredCard: null,
+      lastVideoDraw: 0,
+      elapsed: 0
+    };
 
-    // Helper: Draw rounded rectangle path
+    const container = document.getElementById('canvas-container');
+    const fallbackEl = document.getElementById('fallback-msg');
+
+    // -------------------------------------------------------------------------
+    // 2. Column-Major Matrix Math (Zero External Dependencies)
+    // -------------------------------------------------------------------------
+    function mat4Mul(a, b) {
+      const o = new Float32Array(16);
+      for (let c = 0; c < 4; c++) {
+        const b0 = b[c * 4], b1 = b[c * 4 + 1], b2 = b[c * 4 + 2], b3 = b[c * 4 + 3];
+        o[c * 4]     = a[0]*b0 + a[4]*b1 + a[8]*b2  + a[12]*b3;
+        o[c * 4 + 1] = a[1]*b0 + a[5]*b1 + a[9]*b2  + a[13]*b3;
+        o[c * 4 + 2] = a[2]*b0 + a[6]*b1 + a[10]*b2 + a[14]*b3;
+        o[c * 4 + 3] = a[3]*b0 + a[7]*b1 + a[11]*b2 + a[15]*b3;
+      }
+      return o;
+    }
+
+    function mat4Perspective(fovRad, aspect, near, far) {
+      const f = 1 / Math.tan(fovRad * 0.5), nf = 1 / (near - far);
+      return new Float32Array([
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) * nf, -1,
+        0, 0, 2 * far * near * nf, 0
+      ]);
+    }
+
+    function mat4LookAt(eye, target, up) {
+      let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+      let l = Math.hypot(zx, zy, zz) || 1; zx /= l; zy /= l; zz /= l;
+      let xx = up[1]*zz - up[2]*zy, xy = up[2]*zx - up[0]*zz, xz = up[0]*zy - up[1]*zx;
+      l = Math.hypot(xx, xy, xz) || 1; xx /= l; xy /= l; xz /= l;
+      const yx = zy*xz - zz*xy, yy = zz*xx - zx*xz, yz = zx*xy - zy*xx;
+      return new Float32Array([
+        xx, yx, zx, 0, xy, yy, zy, 0, xz, yz, zz, 0,
+        -(xx*eye[0] + xy*eye[1] + xz*eye[2]),
+        -(yx*eye[0] + yy*eye[1] + yz*eye[2]),
+        -(zx*eye[0] + zy*eye[1] + zz*eye[2]),
+        1
+      ]);
+    }
+
+    function mat4TRS(tx, ty, tz, rx, ry, rz) {
+      const cx = Math.cos(rx), sx = Math.sin(rx);
+      const cy = Math.cos(ry), sy = Math.sin(ry);
+      const cz = Math.cos(rz), sz = Math.sin(rz);
+      const mT  = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, tx,ty,tz,1]);
+      const mRx = new Float32Array([1,0,0,0, 0,cx,sx,0, 0,-sx,cx,0, 0,0,0,1]);
+      const mRy = new Float32Array([cy,0,-sy,0, 0,1,0,0, sy,0,cy,0, 0,0,0,1]);
+      const mRz = new Float32Array([cz,sz,0,0, -sz,cz,0,0, 0,0,1,0, 0,0,0,1]);
+      return mat4Mul(mT, mat4Mul(mRx, mat4Mul(mRy, mRz)));
+    }
+
+    function mat4Invert(m) {
+      const inv = new Float32Array(16);
+      inv[0] = m[5]*m[10]*m[15] - m[5]*m[11]*m[14] - m[9]*m[6]*m[15] + m[9]*m[7]*m[14] + m[13]*m[6]*m[11] - m[13]*m[7]*m[10];
+      inv[4] = -m[4]*m[10]*m[15] + m[4]*m[11]*m[14] + m[8]*m[6]*m[15] - m[8]*m[7]*m[14] - m[12]*m[6]*m[11] + m[12]*m[7]*m[10];
+      inv[8] = m[4]*m[9]*m[15] - m[4]*m[11]*m[13] - m[8]*m[5]*m[15] + m[8]*m[7]*m[13] + m[12]*m[5]*m[11] - m[12]*m[7]*m[9];
+      inv[12] = -m[4]*m[9]*m[14] + m[4]*m[10]*m[13] + m[8]*m[5]*m[14] - m[8]*m[6]*m[13] - m[12]*m[5]*m[10] + m[12]*m[6]*m[9];
+      inv[1] = -m[1]*m[10]*m[15] + m[1]*m[11]*m[14] + m[9]*m[2]*m[15] - m[9]*m[3]*m[14] - m[13]*m[2]*m[11] + m[13]*m[3]*m[10];
+      inv[5] = m[0]*m[10]*m[15] - m[0]*m[11]*m[14] - m[8]*m[2]*m[15] + m[8]*m[3]*m[14] + m[12]*m[2]*m[11] - m[12]*m[3]*m[10];
+      inv[9] = -m[0]*m[9]*m[15] + m[0]*m[11]*m[13] + m[8]*m[1]*m[15] - m[8]*m[3]*m[13] - m[12]*m[1]*m[11] + m[12]*m[3]*m[9];
+      inv[13] = m[0]*m[9]*m[14] - m[0]*m[10]*m[13] - m[8]*m[1]*m[14] + m[8]*m[2]*m[13] + m[12]*m[1]*m[10] - m[12]*m[2]*m[9];
+      inv[2] = m[1]*m[6]*m[15] - m[1]*m[7]*m[14] - m[5]*m[2]*m[15] + m[5]*m[3]*m[14] + m[13]*m[2]*m[7] - m[13]*m[3]*m[6];
+      inv[6] = -m[0]*m[6]*m[15] + m[0]*m[7]*m[14] + m[4]*m[2]*m[15] - m[4]*m[3]*m[14] - m[12]*m[2]*m[7] + m[12]*m[3]*m[6];
+      inv[10] = m[0]*m[5]*m[15] - m[0]*m[7]*m[13] - m[4]*m[1]*m[15] + m[4]*m[3]*m[13] + m[12]*m[1]*m[7] - m[12]*m[3]*m[5];
+      inv[14] = -m[0]*m[5]*m[14] + m[0]*m[6]*m[13] + m[4]*m[1]*m[14] - m[4]*m[2]*m[13] - m[12]*m[1]*m[6] + m[12]*m[2]*m[5];
+      inv[3] = -m[1]*m[6]*m[11] + m[1]*m[7]*m[10] + m[5]*m[2]*m[11] - m[5]*m[3]*m[10] - m[9]*m[2]*m[7] + m[9]*m[3]*m[6];
+      inv[7] = m[0]*m[6]*m[11] - m[0]*m[7]*m[10] - m[4]*m[2]*m[11] + m[4]*m[3]*m[10] + m[8]*m[2]*m[7] - m[8]*m[3]*m[6];
+      inv[11] = -m[0]*m[5]*m[11] + m[0]*m[7]*m[9] + m[4]*m[1]*m[11] - m[4]*m[3]*m[9] - m[8]*m[1]*m[7] + m[8]*m[3]*m[5];
+      inv[15] = m[0]*m[5]*m[10] - m[0]*m[6]*m[9] - m[4]*m[1]*m[10] + m[4]*m[2]*m[9] + m[8]*m[1]*m[6] - m[8]*m[2]*m[5];
+      let det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
+      if (!det) return null;
+      det = 1 / det;
+      for (let i = 0; i < 16; i++) inv[i] *= det;
+      return inv;
+    }
+
+    function unproject(ndcX, ndcY, ndcZ, invVP) {
+      const w = invVP[3]*ndcX + invVP[7]*ndcY + invVP[11]*ndcZ + invVP[15];
+      return [
+        (invVP[0]*ndcX + invVP[4]*ndcY + invVP[8]*ndcZ + invVP[12]) / w,
+        (invVP[1]*ndcX + invVP[5]*ndcY + invVP[9]*ndcZ + invVP[13]) / w,
+        (invVP[2]*ndcX + invVP[6]*ndcY + invVP[10]*ndcZ + invVP[14]) / w
+      ];
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Universal Canvas Helpers & Procedural Card Artwork (1024x512 POT)
+    // -------------------------------------------------------------------------
+    const LOGICAL_W = 1024, LOGICAL_H = 640;
+    const TEX_W = 1024, TEX_H = 512;
+
     function roundRectPath(ctx, x, y, w, h, r) {
-      const radius = Math.min(r, w / 2, h / 2);
+      const rr = Math.min(r, w * 0.5, h * 0.5);
       ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.arcTo(x + w, y, x + w, y + h, radius);
-      ctx.arcTo(x + w, y + h, x, y + h, radius);
-      ctx.arcTo(x, y + h, x, y, radius);
-      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
       ctx.closePath();
     }
 
-    // ----------------------------------------------------------------------------
-    // CARD 0: White Categories List Card
-    // ("Entrepreneurship / Physical Health / Mindset / Trading" + 01 02 03 04)
-    // ----------------------------------------------------------------------------
-    function renderCategoriesCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Clean studio off-white surface (#F5F5F7)
-      const bgGrad = ctx.createLinearGradient(0, 0, w, h);
-      bgGrad.addColorStop(0, '#F7F7F9');
-      bgGrad.addColorStop(0.5, '#F3F3F6');
-      bgGrad.addColorStop(1, '#EEEEF2');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, w, h);
-
-      const marginX = 96;
-      const rowH = (h - 70) / 4;
-      const startY = 35;
-
-      // 3 Horizontal divider lines
-      ctx.strokeStyle = '#DFDFE4';
-      ctx.lineWidth = 2.5;
-      for (let i = 1; i <= 3; i++) {
-        const y = startY + i * rowH;
-        ctx.beginPath();
-        ctx.moveTo(marginX, y);
-        ctx.lineTo(w - marginX, y);
-        ctx.stroke();
+    function createMiniThumb(type) {
+      const c = document.createElement('canvas');
+      c.width = 96; c.height = 96;
+      const g = c.getContext('2d');
+      const bg = g.createLinearGradient(0, 0, 96, 96);
+      if (type === 'suit') {
+        bg.addColorStop(0, '#2a2b30'); bg.addColorStop(1, '#0c0d10');
+        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
+        g.fillStyle = '#050507';
+        g.beginPath(); g.arc(48, 34, 14, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.moveTo(16, 96); g.quadraticCurveTo(22, 54, 48, 52); g.quadraticCurveTo(74, 54, 80, 96); g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5;
+        g.beginPath(); g.moveTo(41, 53); g.lineTo(48, 72); g.lineTo(55, 53); g.stroke();
+      } else if (type === 'fitness') {
+        bg.addColorStop(0, '#3a3430'); bg.addColorStop(1, '#09090b');
+        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
+        const rim = g.createRadialGradient(66, 28, 4, 52, 48, 54);
+        rim.addColorStop(0, 'rgba(255,215,175,0.55)'); rim.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = rim; g.fillRect(0, 0, 96, 96);
+        g.fillStyle = '#09090c';
+        g.beginPath(); g.arc(46, 30, 12, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.moveTo(20, 96); g.lineTo(28, 50); g.lineTo(66, 48); g.lineTo(74, 96); g.fill();
+      } else if (type === 'mindset') {
+        bg.addColorStop(0, '#1f2937'); bg.addColorStop(1, '#050608');
+        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
+        const orb = g.createRadialGradient(54, 42, 2, 48, 46, 34);
+        orb.addColorStop(0, '#e5e7eb'); orb.addColorStop(0.35, '#4b5563'); orb.addColorStop(1, '#06070a');
+        g.fillStyle = orb; g.beginPath(); g.arc(48, 46, 32, 0, Math.PI * 2); g.fill();
+      } else {
+        bg.addColorStop(0, '#121816'); bg.addColorStop(1, '#050607');
+        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
+        [26, 42, 34, 58, 48, 72, 62, 78].forEach((h, idx) => {
+          const x = 11 + idx * 10;
+          g.fillStyle = idx % 2 === 0 ? '#22c55e' : '#e5e7eb';
+          g.fillRect(x, 86 - h, 5, h * 0.55);
+          g.fillRect(x + 2, 86 - h - 8, 1, h * 0.72);
+        });
       }
+      return c;
+    }
 
-      const rows = [
-        { num: '01', type: 'entrepreneurship' },
-        { num: '02', type: 'physical_health' },
-        { num: '03', type: 'mindset' },
-        { num: '04', type: 'trading' }
-      ];
+    const thumbs = {
+      suit: createMiniThumb('suit'),
+      fitness: createMiniThumb('fitness'),
+      mindset: createMiniThumb('mindset'),
+      trading: createMiniThumb('trading')
+    };
 
-      rows.forEach((row, idx) => {
-        const centerY = startY + idx * rowH + rowH * 0.52;
+    function drawVideoChrome(ctx, w, h, t, label) {
+      if (state.mode !== 'video') return;
+      ctx.save();
+      const pulse = 0.55 + 0.45 * Math.sin(t * 5.0);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      roundRectPath(ctx, w - 148, 28, 114, 34, 17);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,59,48,' + pulse.toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(w - 126, 45, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = '600 13px Inter, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, w - 112, 45.5);
+      const prog = (t * 0.18) % 1;
+      ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(42, h - 22, w - 84, 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(42, h - 22, (w - 84) * prog, 3);
+      ctx.restore();
+    }
 
-        // Subtle video mode active row wave
-        const rowWave = isVideoMode ? Math.sin(time * 2.6 - idx * 0.9) * 8 : 0;
-
-        // Left small hollow/grey bullet circle
-        ctx.save();
-        ctx.strokeStyle = '#A8A8B2';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(marginX + 18, centerY, 7.5, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        // Far right hollow outline index number (01, 02, 03, 04) matching reference video
-        ctx.save();
-        ctx.font = '300 104px "Inter", sans-serif';
-        ctx.strokeStyle = '#D5D5DC';
-        ctx.lineWidth = 2.2;
-        ctx.textAlign = 'right';
+    const cardDrawers = {
+      categories(ctx, w, h, t) {
+        ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
+        const sheen = ctx.createLinearGradient(0, 0, w, h);
+        sheen.addColorStop(0, 'rgba(255,255,255,0.9)'); sheen.addColorStop(1, 'rgba(232,232,236,0.65)');
+        ctx.fillStyle = sheen; ctx.fillRect(0, 0, w, h);
+        const padX = 56, rowH = (h - 72) / 4, startY = 36;
+        const activeIdx = state.mode === 'video' ? Math.floor((t * 0.9) % 4) : -1;
         ctx.textBaseline = 'middle';
-        ctx.strokeText(row.num, w - marginX - 6, centerY + 4);
-        ctx.restore();
+        for (let i = 1; i < 4; i++) {
+          ctx.strokeStyle = '#e0e0e5'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(padX, startY + i * rowH); ctx.lineTo(w - padX, startY + i * rowH); ctx.stroke();
+        }
+        const drawThumb = (img, x, y, size) => {
+          ctx.save(); roundRectPath(ctx, x, y - size / 2, size, size, 8); ctx.clip();
+          ctx.drawImage(img, x, y - size / 2, size, size); ctx.restore();
+        };
+        const rows = [
+          { num: '01', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText('Entrepreneurship', padX + 20, cy);
+            drawThumb(thumbs.suit, padX + 20 + ctx.measureText('Entrepreneurship').width + 18, cy, 52);
+          }},
+          { num: '02', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX + 95; ctx.fillText('Physical', x0, cy);
+            const w1 = ctx.measureText('Physical').width;
+            drawThumb(thumbs.fitness, x0 + w1 + 16, cy, 52);
+            ctx.fillText('Health', x0 + w1 + 84, cy);
+          }},
+          { num: '03', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX + 168; drawThumb(thumbs.mindset, x0, cy, 52);
+            ctx.fillText('Mindset', x0 + 68, cy);
+          }},
+          { num: '04', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX + 220; ctx.fillText('Trading', x0, cy);
+            drawThumb(thumbs.trading, x0 + ctx.measureText('Trading').width + 16, cy, 52);
+          }}
+        ];
+        rows.forEach((r, idx) => {
+          const cy = startY + idx * rowH + rowH * 0.5, isHi = idx === activeIdx;
+          if (isHi) {
+            ctx.fillStyle = 'rgba(0,0,0,0.045)';
+            roundRectPath(ctx, padX - 10, startY + idx * rowH + 8, w - padX * 2 + 20, rowH - 16, 12);
+            ctx.fill();
+          }
+          r.draw(cy, isHi);
+          ctx.fillStyle = isHi ? 'rgba(20,20,25,0.55)' : '#d6d6dc';
+          ctx.font = '300 48px Inter, sans-serif'; ctx.textAlign = 'right';
+          ctx.fillText(r.num, w - padX, cy);
+        });
+        drawVideoChrome(ctx, w, h, t, '04 REELS');
+      },
 
-        // Center Typography + Inline Rounded Thumbnail Pill
+      heartline(ctx, w, h, t) {
+        ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, w, h);
+        const pulse = state.mode === 'video' ? 1 + 0.14 * Math.sin(t * 3.5) : 1;
+        const glow = ctx.createRadialGradient(w * 0.56, h * 0.62, 10, w * 0.54, h * 0.58, 360 * pulse);
+        glow.addColorStop(0, 'rgba(255,42,24,0.85)'); glow.addColorStop(0.32, 'rgba(185,16,12,0.45)');
+        glow.addColorStop(0.7, 'rgba(65,4,6,0.16)'); glow.addColorStop(1, 'rgba(5,5,7,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+
         ctx.save();
-        ctx.font = '400 112px "Inter", sans-serif';
-        ctx.fillStyle = '#121214';
-        ctx.textBaseline = 'middle';
-
-        const pillW = 144;
-        const pillH = 92;
-        const pillRadius = 18;
-        const gap = 26;
-
-        if (row.type === 'entrepreneurship') {
-          const text = 'Entrepreneurship';
-          const textW = ctx.measureText(text).width;
-          const totalW = textW + gap + pillW;
-          const startX = (w - totalW) * 0.5 - 20 + rowWave;
-
-          ctx.fillText(text, startX, centerY);
-          drawInlineThumbnail(ctx, startX + textW + gap, centerY - pillH * 0.52, pillW, pillH, pillRadius, 'entrepreneur', time, isVideoMode);
-        } else if (row.type === 'physical_health') {
-          const text1 = 'Physical';
-          const text2 = 'Health';
-          const w1 = ctx.measureText(text1).width;
-          const w2 = ctx.measureText(text2).width;
-          const totalW = w1 + gap + pillW + gap + w2;
-          const startX = (w - totalW) * 0.5 - 20 - rowWave;
-
-          ctx.fillText(text1, startX, centerY);
-          drawInlineThumbnail(ctx, startX + w1 + gap, centerY - pillH * 0.52, pillW, pillH, pillRadius, 'gym', time, isVideoMode);
-          ctx.fillText(text2, startX + w1 + gap + pillW + gap, centerY);
-        } else if (row.type === 'mindset') {
-          const text = 'Mindset';
-          const textW = ctx.measureText(text).width;
-          const totalW = pillW + gap + textW;
-          const startX = (w - totalW) * 0.5 - 20 + rowWave;
-
-          drawInlineThumbnail(ctx, startX, centerY - pillH * 0.52, pillW, pillH, pillRadius, 'mindset', time, isVideoMode);
-          ctx.fillText(text, startX + pillW + gap, centerY);
-        } else if (row.type === 'trading') {
-          const text = 'Trading';
-          const textW = ctx.measureText(text).width;
-          const totalW = textW + gap + pillW;
-          const startX = (w - totalW) * 0.5 - 20 - rowWave;
-
-          ctx.fillText(text, startX, centerY);
-          drawInlineThumbnail(ctx, startX + textW + gap, centerY - pillH * 0.52, pillW, pillH, pillRadius, 'trading', time, isVideoMode);
-        }
-
+        ctx.strokeStyle = 'rgba(52,211,153,0.25)'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(w*0.68, 42+i*16); ctx.lineTo(w*0.94, 42+i*16); ctx.stroke(); }
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.strokeRect(w*0.66, 30, w*0.30, 120);
         ctx.restore();
-      });
-    }
 
-    // Helper for the 4 inline rounded thumbnail pills on the White Categories Card
-    function drawInlineThumbnail(ctx, x, y, w, h, r, style, time, isVideoMode) {
-      ctx.save();
-      roundRectPath(ctx, x, y, w, h, r);
-      ctx.clip();
+        ctx.save();
+        ctx.fillStyle = '#fff'; ctx.font = '900 164px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.scale(1.06, 0.94);
+        ctx.fillText('HEARTLINE', (w / 1.06) * 0.5, 24);
+        ctx.restore();
 
-      // Base dark background
-      ctx.fillStyle = '#141210';
-      ctx.fillRect(x, y, w, h);
-
-      const pulse = isVideoMode ? Math.sin(time * 4.0) * 6 : 0;
-
-      if (style === 'entrepreneur') {
-        // Warm moody golden-brown portrait silhouette
-        const g = ctx.createRadialGradient(x + w * 0.65 + pulse, y + h * 0.35, 4, x + w * 0.5, y + h * 0.5, w * 0.8);
-        g.addColorStop(0, '#E89B54');
-        g.addColorStop(0.45, '#6E3B18');
-        g.addColorStop(1, '#120C08');
-        ctx.fillStyle = g;
-        ctx.fillRect(x, y, w, h);
-
-        // Head & shoulders silhouette
-        ctx.fillStyle = '#22150D';
+        ctx.save();
+        const bodyGrad = ctx.createLinearGradient(w*0.34, h*0.28, w*0.68, h*0.96);
+        bodyGrad.addColorStop(0, '#ff4d2e'); bodyGrad.addColorStop(0.28, '#c8140d');
+        bodyGrad.addColorStop(0.75, '#190405'); bodyGrad.addColorStop(1, '#050507');
+        ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.arc(x + w * 0.46, y + h * 0.38, 20, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(x + w * 0.46, y + h * 0.92, 38, 32, 0, Math.PI, 0);
-        ctx.fill();
+        ctx.moveTo(w*0.34, h); ctx.quadraticCurveTo(w*0.36, h*0.56, w*0.43, h*0.43);
+        ctx.quadraticCurveTo(w*0.41, h*0.26, w*0.51, h*0.26); ctx.quadraticCurveTo(w*0.59, h*0.27, w*0.57, h*0.42);
+        ctx.lineTo(w*0.63, h*0.58); ctx.lineTo(w*0.72, h*0.69); ctx.lineTo(w*0.67, h*0.74);
+        ctx.lineTo(w*0.54, h*0.68); ctx.lineTo(w*0.50, h); ctx.closePath(); ctx.fill();
 
-        // Warm rim light on face
-        ctx.strokeStyle = '#F7B977';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(x + w * 0.48, y + h * 0.38, 19, -0.8, 0.9);
-        ctx.stroke();
-      } else if (style === 'gym') {
-        // Dark gym scene with warm dust & battle ropes
-        const g = ctx.createLinearGradient(x, y, x + w, y + h);
-        g.addColorStop(0, '#2B211B');
-        g.addColorStop(0.5, '#5E4231');
-        g.addColorStop(1, '#14100E');
-        ctx.fillStyle = g;
-        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = 'rgba(255,115,70,0.9)'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(w*0.53, h*0.27); ctx.quadraticCurveTo(w*0.58, h*0.34, w*0.56, h*0.44); ctx.stroke();
 
-        // Athlete silhouette on left
-        ctx.fillStyle = '#D99B72';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.32, y + h * 0.35, 13, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#8F5B3C';
-        ctx.fillRect(x + w * 0.22, y + h * 0.48, 26, 42);
+        const sg = ctx.createLinearGradient(w*0.68, h*0.75, w*0.80, h*0.52);
+        sg.addColorStop(0, 'rgba(255,80,45,0.75)'); sg.addColorStop(1, 'rgba(255,220,200,0.98)');
+        ctx.strokeStyle = sg; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(w*0.63, h*0.76); ctx.lineTo(w*0.74, h*0.76); ctx.lineTo(w*0.81, h*0.56); ctx.stroke();
 
-        // Battle rope wave
-        ctx.strokeStyle = '#F2C59B';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        for (let i = 0; i <= 30; i++) {
-          const rx = x + w * 0.35 + (i / 30) * (w * 0.6);
-          const ry = y + h * 0.62 + Math.sin(i * 0.45 - (isVideoMode ? time * 9 : 1.2)) * 12;
-          if (i === 0) ctx.moveTo(rx, ry);
-          else ctx.lineTo(rx, ry);
+        const cone = ctx.createRadialGradient(w*0.76, h*0.63, 4, w*0.68, h*0.55, 220);
+        cone.addColorStop(0, 'rgba(255,120,80,' + (0.42 * pulse).toFixed(2) + ')'); cone.addColorStop(1, 'rgba(255,40,20,0)');
+        ctx.fillStyle = cone;
+        ctx.beginPath(); ctx.moveTo(w*0.74, h*0.76); ctx.lineTo(w*0.81, h*0.56); ctx.lineTo(w*0.48, h*0.30); ctx.lineTo(w*0.50, h*0.76); ctx.closePath(); ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 20px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ['We build sites, brands,', 'and digital experiences', 'that feel alive, intentional,', 'and human.'].forEach((ln, idx) => ctx.fillText(ln, 44, 212 + idx * 27));
+
+        ctx.save();
+        ctx.fillStyle = '#f8f8fa'; roundRectPath(ctx, 44, h - 134, 226, 76, 10); ctx.fill();
+        ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.arc(76, h - 96, 19, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.arc(76, h - 101, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(76, h - 83, 12, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#111113'; ctx.font = '700 13px Inter, sans-serif'; ctx.fillText('LAURA TIMMONS', 105, h - 115);
+        ctx.fillStyle = '#71717a'; ctx.font = '400 11px Inter, sans-serif'; ctx.fillText('Creative Director', 105, h - 97);
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(105, h - 77, 130, 3);
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '500 11px Inter, sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText('01 / DIGITAL CRAFT', w - 44, h - 54);
+        ctx.fillText('40.7128° N', w - 44, 215);
+
+        if (state.mode === 'video') {
+          for (let b = 0; b < 24; b++) {
+            const amp = 8 + Math.abs(Math.sin(t * 5.2 + b * 0.45)) * 28;
+            ctx.fillStyle = 'rgba(255,70,50,0.72)';
+            ctx.fillRect(w - 220 + b * 7, h - 86 - amp, 3.5, amp);
+          }
+          drawVideoChrome(ctx, w, h, t, 'LIVE');
         }
-        ctx.stroke();
-      } else if (style === 'mindset') {
-        // Golden sunset horizon + silhouette
-        const g = ctx.createLinearGradient(x, y, x, y + h);
-        g.addColorStop(0, '#26170C');
-        g.addColorStop(0.55, '#B36A2E');
-        g.addColorStop(0.8, '#F5B86E');
-        g.addColorStop(1, '#1A110B');
-        ctx.fillStyle = g;
-        ctx.fillRect(x, y, w, h);
+      },
 
-        // Sun glow
-        ctx.fillStyle = '#FFE2A8';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.68, y + h * 0.55 - pulse * 0.5, 16, 0, Math.PI * 2);
-        ctx.fill();
+      cbdSeo(ctx, w, h, t) {
+        ctx.fillStyle = '#090b0a'; ctx.fillRect(0, 0, w, h);
+        const amb = ctx.createRadialGradient(w*0.28, h*0.46, 20, w*0.30, h*0.46, 380);
+        amb.addColorStop(0, 'rgba(34,197,94,0.22)'); amb.addColorStop(1, 'rgba(9,11,10,0)');
+        ctx.fillStyle = amb; ctx.fillRect(0, 0, w, h);
 
-        // Thinker silhouette
-        ctx.fillStyle = '#120B07';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.38, y + h * 0.44, 16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(x + w * 0.38, y + h * 0.95, 34, 30, 0, Math.PI, 0);
-        ctx.fill();
-      } else if (style === 'trading') {
-        // Dark financial screen + trader silhouette
-        ctx.fillStyle = '#0D1012';
-        ctx.fillRect(x, y, w, h);
+        ctx.save();
+        ctx.translate(w*0.26, h*0.56);
+        ctx.rotate(-0.18 + (state.mode === 'video' ? Math.sin(t * 1.4) * 0.05 : 0));
+        ctx.strokeStyle = 'rgba(74,222,128,0.85)'; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 125); ctx.stroke();
 
-        // Glowing candlestick / chart lines in background
-        ctx.strokeStyle = '#68A678';
-        ctx.lineWidth = 2.5;
-        for (let i = 0; i < 8; i++) {
-          const bx = x + 18 + i * 16;
-          const bh = 18 + ((i * 19) % 36) + (isVideoMode ? Math.sin(time * 5 + i) * 8 : 0);
-          ctx.beginPath();
-          ctx.moveTo(bx, y + h * 0.75);
-          ctx.lineTo(bx, y + h * 0.75 - bh);
-          ctx.stroke();
+        [[0,250,34],[-0.46,215,30],[0.46,215,30],[-0.95,162,24],[0.95,162,24],[-1.42,105,16],[1.42,105,16]].forEach(([ang, len, wid]) => {
+          ctx.save(); ctx.rotate(ang);
+          const g = ctx.createLinearGradient(0, 0, 0, -len);
+          g.addColorStop(0, 'rgba(34,197,94,0.16)'); g.addColorStop(1, 'rgba(74,222,128,0.38)');
+          ctx.fillStyle = g; ctx.strokeStyle = 'rgba(134,239,172,0.78)'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(-wid,-len*0.45,0,-len); ctx.quadraticCurveTo(wid,-len*0.45,0,0);
+          ctx.fill(); ctx.stroke();
+          ctx.strokeStyle = 'rgba(74,222,128,0.35)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-len);
+          for (let r = 0.2; r < 0.9; r += 0.16) {
+            const ry = -len * r, rw = wid * Math.sin(r * Math.PI) * 0.78;
+            ctx.moveTo(-rw, ry); ctx.lineTo(0, ry - 12); ctx.lineTo(rw, ry);
+          }
+          ctx.stroke(); ctx.restore();
+        });
+        ctx.restore();
+
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.font = '800 72px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('CBD SEO', 148, 58); ctx.fillText("IT'S NOT JUST", 148, 130); ctx.fillText("TRAFFIC-IT'S", 148, 202);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText('YOUR GROWTH', 148, 274); ctx.fillText('STRATEGY', 148, 346);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.62)'; ctx.font = '500 15px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('WE HELP CANNABIS BRANDS RANK ORGANICALLY WITHOUT AD BANS', w * 0.5, h - 144);
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(64, h - 106); ctx.lineTo(w - 64, h - 106); ctx.stroke();
+
+        ['100% COMPLIANT', 'HIGH-INTENT SEO', 'MEASURABLE ROI'].forEach((label, idx) => {
+          const cx = w * (0.22 + idx * 0.28);
+          ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(cx - 88, h - 62, 13, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 14px Inter, sans-serif'; ctx.textAlign = 'left';
+          ctx.fillText(label, cx - 66, h - 62);
+        });
+        drawVideoChrome(ctx, w, h, t, 'CASE');
+      },
+
+      restrictedSeo(ctx, w, h, t) {
+        ctx.fillStyle = '#0c0e0d'; ctx.fillRect(0, 0, w, h);
+        const glow = ctx.createRadialGradient(w*0.72, h*0.78, 10, w*0.65, h*0.75, 460);
+        glow.addColorStop(0, 'rgba(52,211,153,0.26)'); glow.addColorStop(1, 'rgba(12,14,13,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = 'rgba(167,243,208,0.68)'; ctx.font = '600 14px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText('MOST AGENCIES AVOID CANNABIS — WE ENGINEER AROUND IT', 64, 68);
+        ctx.fillStyle = '#f8fafc'; ctx.font = '800 76px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.fillText('IN A RESTRICTED', 64, 108); ctx.fillText('MARKET, SEO IS', 64, 186);
+        ctx.fillStyle = '#d1fae5'; ctx.fillText('LEVERAGED', 64, 264);
+
+        const count = 44, startX = 64, step = (w - 128) / count, baseY = h - 56;
+        for (let i = 0; i < count; i++) {
+          const p = i / (count - 1);
+          const wave = state.mode === 'video' ? Math.sin(t * 3.8 + i * 0.35) * 14 * p : 0;
+          const barH = Math.max(12, Math.pow(p, 2.05) * 235 + wave);
+          const g = ctx.createLinearGradient(0, baseY - barH, 0, baseY);
+          g.addColorStop(0, p > 0.7 ? '#ecfdf5' : '#6ee7b7');
+          g.addColorStop(0.55, '#10b981'); g.addColorStop(1, 'rgba(16,185,129,0.08)');
+          ctx.fillStyle = g; ctx.fillRect(startX + i * step, baseY - barH, step * 0.56, barH);
         }
-
-        // Trader silhouette in center-right
-        ctx.fillStyle = '#E0B084';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.52, y + h * 0.34, 14, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#191B1F';
-        ctx.beginPath();
-        ctx.ellipse(x + w * 0.52, y + h * 0.92, 34, 34, 0, Math.PI, 0);
-        ctx.fill();
-      }
-
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 1: "HEARTLINE" Red Dark Creative Studio Hero Card
-    // ----------------------------------------------------------------------------
-    function renderHeartlineCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Deep pitch black background (#050505)
-      ctx.fillStyle = '#050505';
-      ctx.fillRect(0, 0, w, h);
-
-      // Top Micro Navigation Bar
-      ctx.save();
-      ctx.font = '600 21px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.fillText('SERVICES', 745, 76);
-      ctx.fillText('WORK', 945, 76);
-      ctx.fillText('ABOUT', 1095, 76);
-      ctx.textAlign = 'right';
-      ctx.fillText('START A PROJECT', w - 92, 76);
-      ctx.restore();
-
-      // Atmospheric volumetric crimson glow behind silhouette
-      const glowShift = isVideoMode ? Math.sin(time * 3.0) * 35 : 0;
-      const redGlow = ctx.createRadialGradient(w * 0.45 + glowShift, h * 0.56, 30, w * 0.46, h * 0.58, 720);
-      redGlow.addColorStop(0, 'rgba(235, 28, 18, 0.88)');
-      redGlow.addColorStop(0.38, 'rgba(175, 12, 8, 0.52)');
-      redGlow.addColorStop(0.7, 'rgba(70, 4, 4, 0.2)');
-      redGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = redGlow;
-      ctx.fillRect(0, 0, w, h);
-
-      // Massive Extended Uppercase "HEARTLINE" Headline across full width
-      ctx.save();
-      ctx.translate(84, 315);
-      ctx.scale(1.18, 1.0);
-      ctx.font = '900 245px "Inter", sans-serif';
-      ctx.fillStyle = '#F7F7F7';
-      ctx.letterSpacing = '-4px';
-      ctx.fillText('HEARTLINE', 0, 0);
-      ctx.restore();
-
-      // Horizontal red light motion streaks behind/across creator silhouette
-      ctx.save();
-      for (let i = 0; i < 16; i++) {
-        const sy = 360 + i * 34;
-        const streakLen = 280 + ((i * 97) % 340) + (isVideoMode ? Math.sin(time * 6 + i) * 60 : 0);
-        const sx = 420 + ((i * 53) % 380);
-        const sg = ctx.createLinearGradient(sx, sy, sx + streakLen, sy);
-        sg.addColorStop(0, 'rgba(255, 30, 10, 0)');
-        sg.addColorStop(0.5, 'rgba(255, 48, 18, 0.48)');
-        sg.addColorStop(1, 'rgba(255, 120, 60, 0)');
-        ctx.fillStyle = sg;
-        ctx.fillRect(sx, sy, streakLen, 5);
-      }
-      ctx.restore();
-
-      // Center Creator Silhouette in Profile working at a laptop (overlaps HEARTLINE)
-      ctx.save();
-      // Rim-lit head & shoulders aura
-      const rimGrad = ctx.createRadialGradient(840, 430, 10, 810, 460, 260);
-      rimGrad.addColorStop(0, 'rgba(255, 70, 30, 0.95)');
-      rimGrad.addColorStop(0.5, 'rgba(210, 18, 10, 0.55)');
-      rimGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = rimGrad;
-      ctx.beginPath();
-      ctx.arc(820, 450, 260, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dark silhouette of head, tilted forward toward laptop
-      ctx.fillStyle = '#090303';
-      ctx.beginPath();
-      ctx.ellipse(765, 355, 86, 102, 0.22, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Glowing red profile edge along forehead/nose/chin
-      ctx.strokeStyle = '#FF3B1F';
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(772, 358, 86, -0.75, 0.85);
-      ctx.stroke();
-
-      // Torso / Shoulders dark silhouette
-      ctx.fillStyle = '#080202';
-      ctx.beginPath();
-      ctx.moveTo(520, 960);
-      ctx.quadraticCurveTo(560, 490, 735, 445);
-      ctx.quadraticCurveTo(860, 480, 965, 790);
-      ctx.lineTo(1160, 835);
-      ctx.lineTo(1140, 960);
-      ctx.closePath();
-      ctx.fill();
-
-      // Intense red rim highlights on shoulder & arm
-      ctx.strokeStyle = '#FF2A12';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(745, 452);
-      ctx.quadraticCurveTo(865, 515, 975, 785);
-      ctx.lineTo(1135, 822);
-      ctx.stroke();
-
-      // Sleek Laptop on Right-Center Desk (angled screen facing creator)
-      ctx.strokeStyle = '#EBEBEB';
-      ctx.lineWidth = 7;
-      ctx.beginPath();
-      ctx.moveTo(1365, 675);
-      ctx.lineTo(1285, 895);
-      ctx.lineTo(1105, 895);
-      ctx.stroke();
-
-      // Laptop screen warm crimson glow onto desk & hands
-      const screenGlow = ctx.createRadialGradient(1260, 810, 8, 1240, 820, 240);
-      screenGlow.addColorStop(0, 'rgba(255, 90, 45, 0.85)');
-      screenGlow.addColorStop(0.5, 'rgba(220, 25, 15, 0.35)');
-      screenGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = screenGlow;
-      ctx.fillRect(980, 620, 460, 360);
-
-      // Subtle desk surface reflection line
-      ctx.strokeStyle = 'rgba(255, 60, 40, 0.45)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(460, 905);
-      ctx.lineTo(1640, 905);
-      ctx.stroke();
-      ctx.restore();
-
-      // Left Column Editorial Subcopy (under "HEAR")
-      ctx.save();
-      ctx.font = '500 40px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      const copyLines = [
-        'We build sites, brands,',
-        'and digital experiences',
-        'that feel alive, intentional,',
-        'and human.'
-      ];
-      copyLines.forEach((line, i) => {
-        ctx.fillText(line, 92, 412 + i * 52);
-      });
-      ctx.restore();
-
-      // Bottom-Left Floating White Profile Card ("LAURA TIMBER")
-      ctx.save();
-      const cardX = 92;
-      const cardY = 918;
-      const cardW = 470;
-      const cardH = 175;
-      roundRectPath(ctx, cardX, cardY, cardW, cardH, 14);
-      ctx.fillStyle = '#F3F3F5';
-      ctx.fill();
-
-      // Avatar inside profile card
-      roundRectPath(ctx, cardX + 18, cardY + 18, 118, 139, 8);
-      ctx.fillStyle = '#140808';
-      ctx.fill();
-
-      // Mini red-lit portrait inside avatar
-      ctx.fillStyle = '#D93829';
-      ctx.beginPath();
-      ctx.arc(cardX + 77, cardY + 68, 26, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#2B0D0A';
-      ctx.beginPath();
-      ctx.ellipse(cardX + 77, cardY + 135, 42, 34, 0, Math.PI, 0);
-      ctx.fill();
-
-      // Profile text
-      ctx.fillStyle = '#0D0D0F';
-      ctx.font = '800 27px "Inter", sans-serif';
-      ctx.fillText('LAURA TIMBER', cardX + 156, cardY + 52);
-
-      ctx.fillStyle = '#6E6E77';
-      ctx.font = '600 17px "Inter", sans-serif';
-      ctx.fillText('FOUNDER & CREATIVE LEAD', cardX + 156, cardY + 80);
-
-      // Dark bottom action bar inside profile card
-      roundRectPath(ctx, cardX + 156, cardY + 112, 292, 42, 6);
-      ctx.fillStyle = '#121214';
-      ctx.fill();
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '700 16px "Inter", sans-serif';
-      ctx.fillText('BOOK A DISCOVERY CALL', cardX + 174, cardY + 139);
-      ctx.fillText('↗', cardX + 418, cardY + 139);
-      ctx.restore();
-
-      // Right Column Metadata & Project Thumbnails (under "LINE")
-      ctx.save();
-      // Thumbnail 1
-      roundRectPath(ctx, 1430, 390, 120, 78, 6);
-      ctx.fillStyle = '#381010';
-      ctx.fill();
-      ctx.fillStyle = '#FF4422';
-      ctx.fillRect(1445, 410, 50, 35);
-
-      // Thumbnail 2
-      roundRectPath(ctx, 1568, 390, 120, 78, 6);
-      ctx.fillStyle = '#122238';
-      ctx.fill();
-      ctx.fillStyle = '#3888FF';
-      ctx.fillRect(1585, 410, 55, 35);
-
-      ctx.font = '600 16px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.fillText('FEATURED REEL  //  2025 EDITION', 1430, 505);
-      ctx.fillText('DESIGN, MOTION & INTERACTIVE WEBGL', 1430, 530);
-
-      // Bottom-Right Audio Waveform + Timestamps + CREATIVE STUDIO label
-      const waveX = 1140;
-      const waveY = 1045;
-      for (let i = 0; i < 38; i++) {
-        const barH = 8 + ((i * 17) % 26) + (isVideoMode ? Math.abs(Math.sin(time * 8 + i * 0.4)) * 22 : 0);
-        ctx.fillStyle = i < 22 ? '#FF3B1F' : 'rgba(255, 255, 255, 0.25)';
-        ctx.fillRect(waveX + i * 9, waveY - barH / 2, 4, barH);
-      }
-
-      ctx.font = '700 19px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('• 01:28', 1140, 1095);
-      ctx.fillText('• 02:45', 1140, 1125);
-
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.fillText('BECOME A CLIENT  ↗', w - 92, 1045);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '700 21px "Inter", sans-serif';
-      ctx.fillText('CREATIVE STUDIO', w - 92, 1125);
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 2: "CBD SEO — IT'S NOT JUST TRAFFIC - IT'S YOUR GROWTH STRATEGY"
-    // ----------------------------------------------------------------------------
-    function renderCbdSeoCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Deep dark botanical charcoal-green (#080C0A)
-      const bg = ctx.createRadialGradient(w * 0.26, h * 0.48, 50, w * 0.5, h * 0.5, w * 0.75);
-      bg.addColorStop(0, '#13241B');
-      bg.addColorStop(0.45, '#09100C');
-      bg.addColorStop(1, '#050706');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      // Top Micro-Nav Bar
-      ctx.save();
-      ctx.font = '600 18px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(180, 210, 195, 0.55)';
-      ctx.fillText('TARAN', 110, 74);
-      ctx.fillText('SERVICES', 620, 74);
-      ctx.fillText('CASE STUDIES', 780, 74);
-      ctx.fillText('PROCESS', 980, 74);
-      ctx.fillText('FAQ', 1140, 74);
-
-      roundRectPath(ctx, w - 310, 44, 200, 44, 22);
-      ctx.strokeStyle = 'rgba(143, 214, 180, 0.45)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = '#8FD6B4';
-      ctx.fillText('BOOK AUDIT ↗', w - 275, 72);
-      ctx.restore();
-
-      // Left Side: Intricate 3D Translucent Emerald/Mint Molecular X-Structure
-      ctx.save();
-      const cx = 440;
-      const cy = 545;
-      const rot = isVideoMode ? Math.sin(time * 1.8) * 0.14 : 0;
-      ctx.translate(cx, cy);
-      ctx.rotate(rot);
-
-      // Draw glossy 3D molecular rods and nodes forming the X-chromosome crystal
-      const branches = [
-        { x1: -150, y1: -260, x2: 145, y2: 265 },
-        { x1: 145, y1: -255, x2: -140, y2: 260 },
-        { x1: -65, y1: -280, x2: 75, y2: 270 }
-      ];
-
-      branches.forEach((b, idx) => {
-        const rodGrad = ctx.createLinearGradient(b.x1, b.y1, b.x2, b.y2);
-        rodGrad.addColorStop(0, '#BCEAD5');
-        rodGrad.addColorStop(0.35, '#4CA87C');
-        rodGrad.addColorStop(0.7, '#1E5E41');
-        rodGrad.addColorStop(1, '#98DFBE');
-
-        ctx.strokeStyle = rodGrad;
-        ctx.lineWidth = idx === 2 ? 26 : 38;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(b.x1, b.y1);
-        ctx.lineTo(b.x2, b.y2);
-        ctx.stroke();
-
-        // Specular highlight along rod
-        ctx.strokeStyle = 'rgba(235, 255, 245, 0.65)';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(b.x1 - 5, b.y1);
-        ctx.lineTo(b.x2 - 5, b.y2);
-        ctx.stroke();
-      });
-
-      // Molecular spheres attached along the X structure
-      const nodes = [
-        [-145, -250, 34], [140, -245, 32], [0, -15, 48],
-        [-135, 250, 34], [140, 255, 36], [-85, -125, 28],
-        [88, -115, 26], [-78, 130, 30], [85, 135, 28]
-      ];
-      nodes.forEach(([nx, ny, nr]) => {
-        const sg = ctx.createRadialGradient(nx - nr * 0.3, ny - nr * 0.3, 4, nx, ny, nr);
-        sg.addColorStop(0, '#FFFFFF');
-        sg.addColorStop(0.35, '#8FD6B4');
-        sg.addColorStop(0.75, '#276B4B');
-        sg.addColorStop(1, '#0B2418');
-        ctx.fillStyle = sg;
-        ctx.beginPath();
-        ctx.arc(nx, ny, nr, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
-
-      // Circular stamp badge under molecule
-      ctx.save();
-      ctx.strokeStyle = 'rgba(143, 214, 180, 0.45)';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(430, 1020, 48, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.font = '700 15px "Inter", sans-serif';
-      ctx.fillStyle = '#8FD6B4';
-      ctx.textAlign = 'center';
-      ctx.fillText('ORGANIC', 430, 1016);
-      ctx.fillText('GROWTH', 430, 1036);
-      ctx.restore();
-
-      // Right Side: Bold Condensed Uppercase Headline
-      ctx.save();
-      const rightX = 875;
-      ctx.font = '700 132px "Oswald", "Impact", sans-serif';
-      ctx.textBaseline = 'top';
-
-      // Line 1: CBD SEO (Mint Green)
-      ctx.fillStyle = '#8FD6B4';
-      ctx.fillText('CBD SEO', rightX, 155);
-
-      // Line 2: IT'S NOT JUST (White)
-      ctx.fillStyle = '#F7FAF8';
-      ctx.fillText("IT'S NOT JUST", rightX, 295);
-
-      // Line 3: TRAFFIC - IT'S (White)
-      ctx.fillText("TRAFFIC - IT'S", rightX, 435);
-
-      // Line 4: YOUR + [GROWTH inside rounded pill border]
-      ctx.fillText('YOUR', rightX, 575);
-      const yourW = ctx.measureText('YOUR').width;
-      const pillX = rightX + yourW + 32;
-      const pillY = 572;
-      const growthText = 'GROWTH';
-      const growthW = ctx.measureText(growthText).width;
-
-      roundRectPath(ctx, pillX, pillY, growthW + 76, 142, 71);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = 5;
-      ctx.stroke();
-      ctx.fillStyle = '#8FD6B4';
-      ctx.fillText(growthText, pillX + 38, 575);
-
-      // Line 5: STRATEGY
-      ctx.fillStyle = '#F7FAF8';
-      ctx.fillText('STRATEGY', rightX, 720);
-
-      // Subheadline
-      ctx.font = '600 24px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(200, 220, 210, 0.72)';
-      ctx.fillText('A NO-FLUFF GUIDE FOR AMBITIOUS CBD FOUNDERS.', rightX, 895);
-
-      // Bottom Two-Column Metrics with Icons
-      const mY = 1020;
-      //Metric 2
-      const m2X = rightX + 365;
-      ctx.strokeStyle = '#8FD6B4';
-      ctx.beginPath();
-      ctx.arc(m2X + 24, mY + 24, 22, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.font = '700 19px "Inter", sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('100% OF CLIENTS STAY', m2X + 58, mY);
-      ctx.fillStyle = 'rgba(180, 205, 192, 0.75)';
-      ctx.font = '500 17px "Inter", sans-serif';
-      ctx.fillText('AFTER FIRST 90 DAYS', m2X + 58, mY + 26);
-
-      // Metric 3
-      const m3X = rightX + 720;
-      ctx.strokeStyle = '#8FD6B4';
-      ctx.beginPath();
-      ctx.arc(m3X + 24, mY + 24, 22, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.font = '700 19px "Inter", sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('ZERO AD SPEND', m3X + 58, mY);
-      ctx.fillStyle = 'rgba(180, 205, 192, 0.75)';
-      ctx.font = '500 17px "Inter", sans-serif';
-      ctx.fillText('COMPOUNDING ROI', m3X + 58, mY + 26);
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 3: "IN A RESTRICTED MARKET, SEO IS LEVERAGED" (Green Equalizer Card)
-    // ----------------------------------------------------------------------------
-    function renderRestrictedMarketCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Deep dark forest charcoal (#070A08)
-      const bg = ctx.createLinearGradient(0, 0, 0, h);
-      bg.addColorStop(0, '#070A09');
-      bg.addColorStop(0.65, '#09110D');
-      bg.addColorStop(1, '#0D1C15');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.save();
-      ctx.textAlign = 'center';
-
-      // Top Small Caps Eyebrow
-      ctx.font = '600 22px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(165, 195, 180, 0.65)';
-      ctx.letterSpacing = '3px';
-      ctx.fillText("WHY TARAN AGENCY DOESN'T WORK LIKE ANY OTHER", w / 2, 235);
-
-      // Main 3-Line Condensed Uppercase Headline
-      ctx.font = '700 124px "Oswald", "Impact", sans-serif';
-      ctx.letterSpacing = '1px';
-      ctx.fillStyle = '#F5F7F6';
-      ctx.fillText('IN A RESTRICTED', w / 2, 365);
-      ctx.fillText('MARKET, SEO IS', w / 2, 492);
-      ctx.fillStyle = '#8FD6B4';
-      ctx.fillText('LEVERAGED', w / 2, 620);
-
-      // Subtitle
-      ctx.font = '500 23px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(180, 205, 192, 0.68)';
-      ctx.letterSpacing = '1px';
-      ctx.fillText('A PROPRIETARY GROWTH ENGINE ENGINEERED FOR HIGH-COMPETITION VERTICALS.', w / 2, 682);
-      ctx.restore();
-
-      // Bottom Equalizer Vertical Bar Graph (78 dense vertical bars across full width)
-      ctx.save();
-      const numBars = 78;
-      const leftPad = 76;
-      const usableW = w - leftPad * 2;
-      const stepX = usableW / numBars;
-      const baseBottom = h - 30;
-
-      for (let i = 0; i < numBars; i++) {
-        const t = i / (numBars - 1);
-        // Shape matching reference video: dip on left-center, steep rise on right
-        const envelope =
-          0.22 +
-          0.18 * Math.sin(t * Math.PI * 2.2 - 0.6) +
-          0.58 * Math.pow(t, 1.65) +
-          0.08 * Math.sin(i * 0.7);
-
-        const animOffset = isVideoMode ? Math.sin(time * 5.0 + i * 0.25) * 0.06 : 0;
-        const barH = Math.max(45, (envelope + animOffset) * 470);
-        const bx = leftPad + i * stepX;
-        const by = baseBottom - barH;
-
-        // Vertical bar gradient (bright mint/white top tip, deep emerald body)
-        const barGrad = ctx.createLinearGradient(bx, by, bx, baseBottom);
-        barGrad.addColorStop(0, '#D8F8E8');
-        barGrad.addColorStop(0.15, '#8FD6B4');
-        barGrad.addColorStop(0.7, '#2F6E51');
-        barGrad.addColorStop(1, 'rgba(20, 55, 38, 0.25)');
-
-        ctx.fillStyle = barGrad;
-        ctx.fillRect(bx, by, 6.5, barH);
-
-        // Bright cap dot
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(bx, by, 6.5, 4);
-      }
-
-      // Embedded metric callouts inside the bars
-      ctx.font = '700 22px "Inter", sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('+240%', leftPad + usableW * 0.25, baseBottom - 95);
-      ctx.fillText('+490%', leftPad + usableW * 0.56, baseBottom - 165);
-      ctx.fillStyle = '#8FD6B4';
-      ctx.fillText('+760% ROI', leftPad + usableW * 0.84, baseBottom - 260);
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 4: "No sigas líderes" Monochrome Editorial Typography Card (Far Right at 00:00)
-    // ----------------------------------------------------------------------------
-    function renderNoSigasLideresCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Deep monochrome studio black & charcoal
-      const bg = ctx.createLinearGradient(0, 0, w, h);
-      bg.addColorStop(0, '#07080A');
-      bg.addColorStop(0.55, '#121419');
-      bg.addColorStop(1, '#050608');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      // Top micro navigation
-      ctx.save();
-      ctx.font = '500 20px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.48)';
-      ctx.fillText('MANIFESTO  //  01', 110, 88);
-      ctx.fillText('CREATIVE DIRECTION', w - 340, 88);
-      ctx.restore();
-
-      // Left Editorial Serif/Sans Typography ("No sigas / líderes") matching 00:00 far-right card
-      ctx.save();
-      ctx.font = '500 156px "Playfair Display", Georgia, serif';
-      ctx.fillStyle = '#F5F6F8';
-      ctx.fillText('No sigas', 110, 610);
-      ctx.font = '300 148px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(235, 240, 248, 0.9)';
-      ctx.fillText('líderes.', 110, 775);
-
-      ctx.font = '400 25px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(180, 190, 205, 0.62)';
-      ctx.fillText('Construye una marca que defina su propia categoría.', 116, 865);
-      ctx.restore();
-
-      // Right 3D Monolithic Brushed Glass Pillar with Rim Light
-      ctx.save();
-      const px = 1240 + (isVideoMode ? Math.sin(time * 2) * 14 : 0);
-      const py = 130;
-      const pw = 520;
-      const ph = 960;
-
-      roundRectPath(ctx, px, py, pw, ph, 52);
-      const pillarGrad = ctx.createLinearGradient(px, py, px + pw, py + ph);
-      pillarGrad.addColorStop(0, '#38404C');
-      pillarGrad.addColorStop(0.2, '#181C22');
-      pillarGrad.addColorStop(0.8, '#0B0D11');
-      pillarGrad.addColorStop(1, '#29303A');
-      ctx.fillStyle = pillarGrad;
-      ctx.fill();
-
-      ctx.strokeStyle = 'rgba(225, 238, 255, 0.55)';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 5: Warm Portrait of Woman Holding Smartphone / Skincare Bottle
-    // (Visible in the upper/left ring at 00:00 - 00:05)
-    // ----------------------------------------------------------------------------
-    function renderBeautyCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Rich warm golden-amber studio background
-      const bg = ctx.createRadialGradient(w * 0.42, h * 0.42, 60, w * 0.5, h * 0.5, w * 0.75);
-      bg.addColorStop(0, '#E39856');
-      bg.addColorStop(0.4, '#9B5424');
-      bg.addColorStop(0.78, '#3B1B0A');
-      bg.addColorStop(1, '#140904');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.save();
-      const shift = isVideoMode ? Math.sin(time * 2.2) * 12 : 0;
-
-      // Soft warm face & shoulder lighting
-      const skinGrad = ctx.createRadialGradient(780 + shift, 420, 30, 760, 480, 420);
-      skinGrad.addColorStop(0, '#FAD4B0');
-      skinGrad.addColorStop(0.45, '#D48348');
-      skinGrad.addColorStop(0.85, '#6B2F11');
-      skinGrad.addColorStop(1, 'rgba(20, 9, 4, 0)');
-      ctx.fillStyle = skinGrad;
-      ctx.beginPath();
-      ctx.arc(760, 460, 420, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dark smartphone / luxury bottle held in hand near lower-left
-      roundRectPath(ctx, 455 + shift * 0.5, 450, 155, 310, 26);
-      ctx.fillStyle = '#120C0A';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 215, 175, 0.65)';
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      // Subtle screen / label highlight
-      ctx.fillStyle = 'rgba(255, 235, 215, 0.85)';
-      ctx.font = '600 20px "Inter", sans-serif';
-      ctx.fillText('LUMIÈRE', 488 + shift * 0.5, 595);
-      ctx.font = '400 15px "Inter", sans-serif';
-      ctx.fillText('STUDIO APP', 488 + shift * 0.5, 622);
-
-      // Right Editorial Headline
-      ctx.fillStyle = '#FFF7F0';
-      ctx.font = '500 94px "Playfair Display", Georgia, serif';
-      ctx.fillText('Botanical', 1120, 430);
-      ctx.fillText('Radiance', 1120, 540);
-
-      // Bottom Frosted Glass Bar (visible in top-center of video)
-      roundRectPath(ctx, 110, 980, w - 220, 130, 24);
-      ctx.fillStyle = 'rgba(255, 245, 235, 0.18)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      roundRectPath(ctx, w - 410, 1008, 260, 74, 16);
-      ctx.fillStyle = '#18100C';
-      ctx.fill();
-      ctx.fillStyle = '#FFF5EB';
-      ctx.font = '700 21px "Inter", sans-serif';
-      ctx.fillText('SHOP COLLECTION', w - 375, 1052);
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 6: Neon Blue/Orange/Green "MASTER 440+ / GROWTH STRATEGY" Card
-    // (Visible mirrored in the upper/lower chromatic reflection rings)
-    // ----------------------------------------------------------------------------
-    function renderMasterBlueCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      // Deep electric cobalt, neon cyan & warm orange accent gradient
-      const bg = ctx.createRadialGradient(w * 0.55, h * 0.35, 40, w * 0.5, h * 0.5, w * 0.78);
-      bg.addColorStop(0, '#2B68FF');
-      bg.addColorStop(0.45, '#0F297A');
-      bg.addColorStop(0.85, '#060D24');
-      bg.addColorStop(1, '#03050C');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      // Warm neon orange/emerald glow accent on left for authentic chromatic reflection
-      const glow = ctx.createRadialGradient(420, 420, 20, 420, 420, 420);
-      glow.addColorStop(0, 'rgba(255, 135, 45, 0.55)');
-      glow.addColorStop(0.5, 'rgba(80, 230, 160, 0.28)');
-      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.save();
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 175px "Inter", sans-serif';
-      ctx.fillText('MASTER', 110, 290);
-
-      ctx.strokeStyle = '#75A7FF';
-      ctx.lineWidth = 4;
-      roundRectPath(ctx, 110, 365, 460, 140, 70);
-      ctx.stroke();
-      ctx.fillStyle = '#8FD6B4';
-      ctx.font = '700 94px "Inter", sans-serif';
-      ctx.fillText('440+ ROI', 150, 468);
-
-      ctx.fillStyle = '#FFB366';
-      ctx.font = '700 88px "Oswald", sans-serif';
-      ctx.fillText('YOUR GROWTH', 110, 740);
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 160px "Inter", sans-serif';
-      ctx.fillText('STRATEGY', 110, 1040);
-      ctx.restore();
-    }
-
-    // ----------------------------------------------------------------------------
-    // CARD 7: Dark Architectural Luxury Brand Showcase Card (8th Card in Ring)
-    // ----------------------------------------------------------------------------
-    function renderArchitecturalLuxuryCard(ctx, time, isVideoMode) {
-      const w = CARD_TEX_W;
-      const h = CARD_TEX_H;
-
-      const bg = ctx.createLinearGradient(0, 0, w, h);
-      bg.addColorStop(0, '#08090C');
-      bg.addColorStop(0.5, '#12151C');
-      bg.addColorStop(1, '#060709');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-
-      // Subtle architectural warm bronze spotlight
-      const spot = ctx.createRadialGradient(w * 0.65, h * 0.48, 30, w * 0.65, h * 0.48, 560);
-      spot.addColorStop(0, 'rgba(215, 165, 110, 0.35)');
-      spot.addColorStop(0.6, 'rgba(110, 75, 45, 0.12)');
-      spot.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = spot;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.save();
-      ctx.font = '600 20px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(215, 185, 150, 0.65)';
-      ctx.fillText('AURA ATELIER  //  SPATIAL ARCHITECTURE', 110, 92);
-
-      ctx.font = '500 138px "Playfair Display", Georgia, serif';
-      ctx.fillStyle = '#F5EFEA';
-      ctx.fillText('Form Follows', 110, 460);
-      ctx.font = '300 132px "Inter", sans-serif';
-      ctx.fillStyle = '#D9B38C';
-      ctx.fillText('Emotion.', 110, 615);
-
-      // Architectural geometric frame on right
-      const offset = isVideoMode ? Math.sin(time * 2.4) * 12 : 0;
-      ctx.strokeStyle = 'rgba(217, 179, 140, 0.55)';
-      ctx.lineWidth = 3;
-      roundRectPath(ctx, 1220 + offset, 180, 620, 840, 32);
-      ctx.stroke();
-
-      roundRectPath(ctx, 1310 - offset * 0.6, 280, 440, 640, 24);
-      ctx.fillStyle = 'rgba(25, 22, 20, 0.85)';
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // ============================================================================
-    // 2. THREE.JS SCENE, COMPACT CAMERA & CURVED CYLINDER PATCH GEOMETRY
-    // ============================================================================
-
-    const container = document.getElementById('webgl-container');
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 1);
-    container.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-
-    // Medium-telephoto PerspectiveCamera (27 deg FOV) placed further back (base Z = 15.6)
-    // Prevents wide-angle foreshortening so the front card stays compact (~32% viewport width)
-    const BASE_CAMERA_FOV = 27;
-    const BASE_CAMERA_Z = 15.6;
-    let userScale = 1.0;
-
-    const camera = new THREE.PerspectiveCamera(
-      BASE_CAMERA_FOV,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      120
-    );
-
-    // Dynamically adjust camera distance for narrower split-screen preview panels
-    // so the entire 3D cylinder ring and 3-4 visible cards always fit with generous black margins
-    function updateCameraResponsiveDistance() {
-      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-      camera.aspect = aspect;
-      camera.updateProjectionMatrix();
-
-      // In the reference video (aspect ~2.18), Z = 15.6 makes the main card ~32% width.
-      // If the preview panel is narrower (aspect < 1.95), smoothly pull camera back proportionally:
-      const aspectCompensation = aspect < 1.95 ? Math.max(1.0, Math.pow(1.92 / aspect, 0.82)) : 1.0;
-      camera.position.set(0, 0, (BASE_CAMERA_Z * aspectCompensation) / userScale);
-    }
-
-    updateCameraResponsiveDistance();
-
-    // Create a curved cylindrical patch geometry so each card curves smoothly around the cylinder
-    function createCurvedCardGeometry(radius, arcAngle, height, radialSegments = 64, heightSegments = 24) {
-      const geom = new THREE.BufferGeometry();
-      const positions = [];
-      const uvs = [];
-      const indices = [];
-
-      for (let y = 0; y <= heightSegments; y++) {
-        const v = y / heightSegments;
-        const py = (v - 0.5) * height;
-
-        for (let x = 0; x <= radialSegments; x++) {
-          const u = x / radialSegments;
-          // Angle goes from -arcAngle/2 to +arcAngle/2 around the front (+Z) of the cylinder
-          const theta = (u - 0.5) * arcAngle;
-          const px = Math.sin(theta) * radius;
-          const pz = Math.cos(theta) * radius;
-
-          positions.push(px, py, pz);
-          uvs.push(u, v);
+        drawVideoChrome(ctx, w, h, t, 'DATA');
+      },
+
+      nostalgia(ctx, w, h, t) {
+        ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, w, h);
+        const sh = ctx.createLinearGradient(0, 0, w, h);
+        sh.addColorStop(0, 'rgba(255,200,140,0.14)'); sh.addColorStop(0.5, 'rgba(30,26,22,0.45)'); sh.addColorStop(1, 'rgba(0,0,0,0.92)');
+        ctx.fillStyle = sh; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255,215,170,0.14)';
+        for (let i = 0; i < 18; i++) {
+          const x = state.mode === 'video' ? ((t * 40 + i * 50) % w) : i * 56;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - 90, h); ctx.stroke();
         }
-      }
+        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = '#ece8df'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '700 132px "Playfair Display", Georgia, serif'; ctx.fillText('Nostalgia', 0, -76);
+        ctx.font = 'italic 600 112px "Playfair Display", Georgia, serif';
+        ctx.fillStyle = 'rgba(236,232,223,0.86)'; ctx.fillText('Riders', 0, 68);
+        ctx.restore();
+        drawVideoChrome(ctx, w, h, t, 'FILM');
+      },
 
-      for (let y = 0; y < heightSegments; y++) {
-        for (let x = 0; x < radialSegments; x++) {
-          const a = x + (radialSegments + 1) * y;
-          const b = x + (radialSegments + 1) * (y + 1);
-          const c = (x + 1) + (radialSegments + 1) * (y + 1);
-          const d = (x + 1) + (radialSegments + 1) * y;
+      atelier(ctx, w, h, t) {
+        ctx.fillStyle = '#08090b'; ctx.fillRect(0, 0, w, h);
+        const rad = ctx.createRadialGradient(w*0.5, h*0.5, 20, w*0.5, h*0.5, 420);
+        rad.addColorStop(0, 'rgba(148,163,184,0.25)'); rad.addColorStop(1, 'rgba(8,9,11,0)');
+        ctx.fillStyle = rad; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(w*0.5, h*0.52, 165, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#f8fafc'; ctx.font = '700 92px "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ATELIER  07', w*0.5, h*0.46);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '500 16px Inter, sans-serif';
+        ctx.fillText('SPATIAL BRAND ARCHITECTURE', w*0.5, h*0.60);
+        drawVideoChrome(ctx, w, h, t, 'REEL');
+      },
 
-          indices.push(a, b, d);
-          indices.push(b, c, d);
+      pulse(ctx, w, h, t) {
+        ctx.fillStyle = '#070709'; ctx.fillRect(0, 0, w, h);
+        const orb = ctx.createRadialGradient(w*0.68, h*0.48, 15, w*0.68, h*0.48, 280);
+        orb.addColorStop(0, '#fb923c'); orb.addColorStop(0.45, '#be123c'); orb.addColorStop(1, 'rgba(7,7,9,0)');
+        ctx.fillStyle = orb; ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#fff'; ctx.font = '800 88px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText('KINETIC', 64, 165); ctx.fillStyle = 'rgba(255,255,255,0.48)'; ctx.fillText('SYSTEMS', 64, 260);
+        ctx.font = '400 18px Inter, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.fillText('Interactive Motion & WebGL Interfaces', 64, 385);
+        drawVideoChrome(ctx, w, h, t, 'MOTION');
+      },
+
+      form08(ctx, w, h, t) {
+        ctx.fillStyle = '#111215'; ctx.fillRect(0, 0, w, h);
+        const g = ctx.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#27272a'); g.addColorStop(1, '#09090b');
+        ctx.fillStyle = g; ctx.fillRect(42, 42, w - 84, h - 84);
+        ctx.fillStyle = '#fafafa'; ctx.font = '700 84px "Bebas Neue", sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('PURE FORM 08', 78, h - 84);
+        drawVideoChrome(ctx, w, h, t, '3D');
+      },
+
+      womanPhone(ctx, w, h, t) {
+        ctx.fillStyle = '#0f0c0b'; ctx.fillRect(0, 0, w, h);
+        const sg = ctx.createRadialGradient(w*0.56, h*0.36, 20, w*0.56, h*0.40, 380);
+        sg.addColorStop(0, '#f3b78f'); sg.addColorStop(0.35, '#9d5940'); sg.addColorStop(0.75, '#2b1815'); sg.addColorStop(1, '#0a0808');
+        ctx.fillStyle = sg; ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = 'rgba(255,198,162,0.72)';
+        ctx.beginPath(); ctx.ellipse(w*0.56, h*0.25, 110, 130, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(w*0.58, h*0.68, 210, 150, -0.1, 0, Math.PI * 2); ctx.fill();
+
+        const shift = state.mode === 'video' ? Math.sin(t * 2.2) * 8 : 0;
+        const pg = ctx.createRadialGradient(w*0.24, h*0.52 + shift, 8, w*0.24, h*0.52 + shift, 190);
+        pg.addColorStop(0, 'rgba(255,125,50,0.95)'); pg.addColorStop(0.45, 'rgba(234,65,30,0.45)'); pg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = pg; ctx.fillRect(0, 0, w, h);
+        ctx.save(); ctx.translate(w*0.23, h*0.50 + shift); ctx.rotate(-0.14);
+        ctx.fillStyle = '#18181b'; roundRectPath(ctx, -42, -78, 84, 156, 14); ctx.fill();
+        ctx.fillStyle = '#fb923c'; roundRectPath(ctx, -36, -70, 72, 140, 10); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(12,12,14,0.78)'; ctx.fillRect(0, h - 125, w, 125);
+        ctx.fillStyle = '#fff'; ctx.font = '600 26px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText('UGC Creator Campaign • Social First', 48, h - 64);
+      },
+
+      silverStacked(ctx, w, h) {
+        ctx.fillStyle = '#070709'; ctx.fillRect(0, 0, w, h);
+        for (let layer = 2; layer >= 0; layer--) {
+          const offset = layer * 24, shade = 155 + (2 - layer) * 32;
+          const g = ctx.createLinearGradient(0, 0, w, h);
+          g.addColorStop(0, `rgb(${shade+24},${shade+25},${shade+30})`);
+          g.addColorStop(1, `rgb(${shade-20},${shade-18},${shade-10})`);
+          ctx.fillStyle = g; roundRectPath(ctx, offset * 0.6, 0, w - offset * 1.2, h - (2 - layer) * 26, 28); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2; ctx.stroke();
         }
-      }
+        const ac = ctx.createRadialGradient(w*0.25, h*0.45, 10, w*0.25, h*0.45, 220);
+        ac.addColorStop(0, 'rgba(249,115,22,0.48)'); ac.addColorStop(1, 'rgba(220,220,226,0)');
+        ctx.fillStyle = ac; ctx.fillRect(0, 0, w, h - 56);
+        ctx.fillStyle = 'rgba(20,20,24,0.72)'; ctx.font = '700 54px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('ARCHIVE DECK', 64, h * 0.45);
+      },
 
-      geom.setIndex(indices);
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-      geom.computeVertexNormals();
-      return geom;
+      master180(ctx, w, h) {
+        ctx.fillStyle = '#09090b'; ctx.fillRect(0, 0, w, h);
+        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(Math.PI);
+        ctx.fillStyle = '#f4f4f5'; ctx.font = '900 185px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MASTER  4', 0, -40);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '500 22px Inter, sans-serif';
+        ctx.fillText('BRAND SYSTEM & DIRECTION', 0, 80); ctx.restore();
+      },
+
+      cbdSeo180(ctx, w, h, t) {
+        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(Math.PI); ctx.translate(-w*0.5, -h*0.5);
+        cardDrawers.cbdSeo(ctx, w, h, t);
+        ctx.restore();
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 4. Native WebGL Renderer + Custom Optical Shaders
+    // -------------------------------------------------------------------------
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' })
+            || canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' })
+            || canvas.getContext('experimental-webgl', { antialias: true, alpha: false });
+
+    if (!gl) {
+      fallbackEl.style.display = 'grid';
+      return;
     }
 
-    // Foreground Card Shader:
-    // - Razor-sharp anti-aliased SDF rounded corners in UV space
-    // - Subtle 3D cylindrical depth shading
-    // - Smooth hover dimming multiplier (matches 00:01 & 00:04 in the reference video)
-    const foregroundVertexShader = `
+    container.appendChild(canvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 1);
+
+    const anisoExt = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+    const maxAniso = anisoExt ? Math.min(8, gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
+
+    const vsSrc = `
+      attribute vec3 aPos;
+      attribute vec3 aNorm;
+      attribute vec2 aUv;
+      uniform mat4 uModel;
+      uniform mat4 uViewProj;
+      uniform float uHover;
       varying vec2 vUv;
+      varying vec3 vNormalWorld;
       varying vec3 vWorldPos;
-      varying vec3 vWorldNormal;
-
       void main() {
-        vUv = uv;
-        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-        vWorldPos = worldPosition.xyz;
-        vWorldNormal = normalize(mat3(modelMatrix) * normal);
-        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        vUv = aUv;
+        vec3 displaced = aPos + aNorm * (uHover * 0.22);
+        vec4 worldPos = uModel * vec4(displaced, 1.0);
+        vWorldPos = worldPos.xyz;
+        vNormalWorld = normalize(mat3(uModel) * aNorm);
+        gl_Position = uViewProj * worldPos;
       }
     `;
 
-    const foregroundFragmentShader = `
-      uniform sampler2D uTexture;
-      uniform float uBrightness;
-      uniform vec2 uAspect;
+    const fsSrc = `
+      precision highp float;
+      varying vec2 vUv;
+      varying vec3 vNormalWorld;
+      varying vec3 vWorldPos;
+      uniform sampler2D uMap;
+      uniform vec3 uCamPos;
+      uniform float uAspect;
       uniform float uCornerRadius;
+      uniform float uIsBackground;
+      uniform float uChromaScale;
+      uniform float uHover;
 
-      varying vec2 vUv;
-      varying vec3 vWorldPos;
-      varying vec3 vWorldNormal;
-
-      // Signed Distance Field for a 2D rounded box
-      float sdRoundedBox(vec2 p, vec2 b, float r) {
-        vec2 q = abs(p) - b + r;
-        return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+      float roundedRectSDF(vec2 p, vec2 b, float r) {
+        vec2 d = abs(p) - b + vec2(r);
+        return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
       }
 
-      void main() {
-        // Map UV (0..1) to aspect-corrected coordinates centered at (0,0)
-        vec2 p = (vUv - 0.5) * uAspect;
-        vec2 halfSize = uAspect * 0.5;
-        float dist = sdRoundedBox(p, halfSize, uCornerRadius);
-
-        // Smooth anti-aliased rounded corner alpha mask
-        float alpha = 1.0 - smoothstep(-0.0035, 0.0035, dist);
-        if (alpha < 0.01) discard;
-
-        vec4 texColor = texture2D(uTexture, vUv);
-
-        // Subtle depth attenuation for cards curving away on the sides
-        float depthFade = smoothstep(-2.5, 5.8, vWorldPos.z);
-        float lighting = mix(0.42, 1.0, depthFade);
-
-        // Subtle inner border bevel highlight
-        float borderLine = 1.0 - smoothstep(0.0, 0.008, abs(dist + 0.003));
-        vec3 finalRgb = texColor.rgb * lighting * uBrightness;
-        finalRgb += vec3(0.12) * borderLine * depthFade;
-
-        gl_FragColor = vec4(finalRgb, alpha);
-      }
-    `;
-
-    // Upper & Lower Chromatic-Aberrated Reflection Ring Shader:
-    // - Multi-step directional RGB chromatic dispersion (cyan/blue/magenta/red/yellow prism fringes)
-    // - Stacked ghost-edge trails matching the upper/lower rings at 00:00-00:06
-    const backgroundFragmentShader = `
-      uniform sampler2D uTexture;
-      uniform float uChromaStrength;
-      uniform vec2 uAspect;
-      uniform float uCornerRadius;
-
-      varying vec2 vUv;
-      varying vec3 vWorldPos;
-
-      float sdRoundedBox(vec2 p, vec2 b, float r) {
-        vec2 q = abs(p) - b + r;
-        return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-      }
-
-      void main() {
-        // Vertically mirrored reflection UV
-        vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
-
-        vec2 p = (uv - 0.5) * uAspect;
-        vec2 halfSize = uAspect * 0.5;
-
-        // Multi-step directional RGB chromatic dispersion & ghost-edge trails
-        vec2 shiftR = vec2(0.026, -0.016) * uChromaStrength;
-        vec2 shiftY = vec2(0.014, -0.008) * uChromaStrength;
-        vec2 shiftG = vec2(0.000, 0.004) * uChromaStrength;
-        vec2 shiftC = vec2(-0.015, 0.012) * uChromaStrength;
-        vec2 shiftB = vec2(-0.028, 0.020) * uChromaStrength;
-
-        float distR = sdRoundedBox(p + shiftR * uAspect, halfSize, uCornerRadius);
-        float distG = sdRoundedBox(p + shiftG * uAspect, halfSize, uCornerRadius);
-        float distB = sdRoundedBox(p + shiftB * uAspect, halfSize, uCornerRadius);
-
-        float maskR = 1.0 - smoothstep(-0.018, 0.028, distR);
-        float maskG = 1.0 - smoothstep(-0.018, 0.028, distG);
-        float maskB = 1.0 - smoothstep(-0.018, 0.028, distB);
-
-        float alpha = max(max(maskR, maskG), maskB);
-        if (alpha < 0.01) discard;
-
-        // 5-tap directional ghost trail blur per spectral band
-        vec3 col = vec3(0.0);
-        for (int i = -2; i <= 2; i++) {
-          float fi = float(i) * 0.005 * uChromaStrength;
-          vec2 trail = vec2(fi, -fi * 0.65);
-
-          float r = texture2D(uTexture, clamp(uv + shiftR + trail, 0.002, 0.998)).r * maskR;
-          float y = texture2D(uTexture, clamp(uv + shiftY + trail, 0.002, 0.998)).r * maskR;
-          float g = texture2D(uTexture, clamp(uv + shiftG + trail, 0.002, 0.998)).g * maskG;
-          float c = texture2D(uTexture, clamp(uv + shiftC + trail, 0.002, 0.998)).b * maskB;
-          float b = texture2D(uTexture, clamp(uv + shiftB + trail, 0.002, 0.998)).b * maskB;
-
-          col.r += (r * 0.72 + y * 0.28) * 0.2;
-          col.g += (g * 0.65 + y * 0.20 + c * 0.15) * 0.2;
-          col.b += (b * 0.75 + c * 0.25) * 0.2;
+      vec3 sampleBokeh(sampler2D tex, vec2 uv, float blurAmt, float chromaAmt) {
+        if (blurAmt < 0.015 && chromaAmt < 0.0005) return texture2D(tex, uv).rgb;
+        vec3 accum = vec3(0.0);
+        float total = 0.0;
+        for (int i = -3; i <= 3; i++) {
+          float fi = float(i);
+          float w = 1.0 - abs(fi) * 0.20;
+          vec2 tb = uv + vec2(fi * blurAmt * 0.0065, fi * blurAmt * 0.0018);
+          vec2 uvR = clamp(tb + vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+          vec2 uvG = clamp(tb, vec2(0.002), vec2(0.998));
+          vec2 uvB = clamp(tb - vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+          accum.r += texture2D(tex, uvR).r * w;
+          accum.g += texture2D(tex, uvG).g * w;
+          accum.b += texture2D(tex, uvB).b * w;
+          total += w;
         }
+        return accum / total;
+      }
 
-        // Stacked prism rainbow edge fringes (cyan/blue/magenta/red/yellow) around card borders
-        float fringeR = (1.0 - smoothstep(0.0, 0.036, abs(distR))) * 0.62;
-        float fringeG = (1.0 - smoothstep(0.0, 0.036, abs(distG))) * 0.48;
-        float fringeB = (1.0 - smoothstep(0.0, 0.036, abs(distB))) * 0.72;
-        col += vec3(fringeR, fringeG, fringeB) * uChromaStrength;
+      void main() {
+        vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
+        vec2 b = vec2(uAspect * 0.5, 0.5);
+        float dist = roundedRectSDF(p, b, uCornerRadius);
+        float edgeAlpha = 1.0 - smoothstep(-0.0045, 0.0045, dist);
+        if (edgeAlpha < 0.03) discard;
 
-        // Depth attenuation & smooth vertical fade into pure #000000
-        float zFade = smoothstep(-5.2, 5.4, vWorldPos.z);
-        float yVignette = smoothstep(4.2, 1.35, abs(vWorldPos.y));
-        float brightness = 0.62 * zFade * yVignette;
+        vec3 viewDir = normalize(uCamPos - vWorldPos);
+        vec3 nrm = normalize(vNormalWorld);
+        float facing = dot(nrm, viewDir);
+        float frontVis = smoothstep(-0.18, 0.24, facing);
+        if (frontVis < 0.01) discard;
 
-        gl_FragColor = vec4(col * brightness, alpha * 0.9);
+        float grazing = 1.0 - clamp(abs(facing), 0.0, 1.0);
+        float edgeCurve = smoothstep(0.16, 0.85, grazing);
+        float blurAmt = uIsBackground > 0.5 ? (0.95 + 1.15 * grazing) * uChromaScale : (edgeCurve * 1.10) * uChromaScale;
+        float chromaAmt = uIsBackground > 0.5 ? (0.011 + 0.013 * grazing) * uChromaScale : (edgeCurve * 0.014) * uChromaScale;
+
+        vec3 color = sampleBokeh(uMap, vUv, blurAmt, chromaAmt);
+        float rim = smoothstep(0.45, 0.92, grazing) * 0.09;
+        color += vec3(rim) * (1.0 - uIsBackground * 0.65);
+        color *= (1.0 + uHover * 0.08);
+        float depthDim = uIsBackground > 0.5 ? (0.76 - 0.22 * grazing) : 1.0;
+
+        float alpha = edgeAlpha * frontVis;
+        gl_FragColor = vec4(color * depthDim * alpha, alpha);
       }
     `;
 
-    // ============================================================================
-    // 3. BUILD THE 8-CARD CYLINDER ASSEMBLY (R = 5.15, H = 1.98, 37° ARC, 8° GAP)
-    // ============================================================================
+    function compile(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
 
-    // Ordered around the 8-slot cylinder so left-to-right rotation matches 00:00 -> 00:06.5:
-    // Slot 0: White Categories Card (center-left at 00:00)
-    // Slot 1: HEARTLINE Card (enters from left at 00:00 -> center at 00:04-00:06)
-    // Slot 2: CBD SEO Card (enters from left at 00:03 -> left-center at 00:05-00:06)
-    // Slot 3: Warm Beauty Portrait Card
-    // Slot 4: MASTER 440+ / GROWTH STRATEGY Card
-    // Slot 5: Architectural Luxury Card
-    // Slot 6: "No sigas líderes" Monochrome Card (far right at 00:00)
-    // Slot 7: "IN A RESTRICTED MARKET, SEO IS LEVERAGED" Card (center-right at 00:00)
-    const cardRenderers = [
-      { id: 'categories', name: 'Entrepreneurship / Categories', draw: renderCategoriesCard },
-      { id: 'heartline', name: 'HEARTLINE Creative Studio', draw: renderHeartlineCard },
-      { id: 'cbd_seo', name: 'CBD SEO Growth Strategy', draw: renderCbdSeoCard },
-      { id: 'beauty', name: 'Botanical Radiance Portrait', draw: renderBeautyCard },
-      { id: 'master', name: 'MASTER 440+ Growth Strategy', draw: renderMasterBlueCard },
-      { id: 'arch_luxury', name: 'Aura Atelier Architecture', draw: renderArchitecturalLuxuryCard },
-      { id: 'no_sigas', name: 'No sigas líderes', draw: renderNoSigasLideresCard },
-      { id: 'restricted', name: 'In A Restricted Market SEO', draw: renderRestrictedMarketCard }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const loc = {
+      aPos: gl.getAttribLocation(prog, 'aPos'),
+      aNorm: gl.getAttribLocation(prog, 'aNorm'),
+      aUv: gl.getAttribLocation(prog, 'aUv'),
+      uModel: gl.getUniformLocation(prog, 'uModel'),
+      uViewProj: gl.getUniformLocation(prog, 'uViewProj'),
+      uCamPos: gl.getUniformLocation(prog, 'uCamPos'),
+      uMap: gl.getUniformLocation(prog, 'uMap'),
+      uAspect: gl.getUniformLocation(prog, 'uAspect'),
+      uCornerRadius: gl.getUniformLocation(prog, 'uCornerRadius'),
+      uIsBackground: gl.getUniformLocation(prog, 'uIsBackground'),
+      uChromaScale: gl.getUniformLocation(prog, 'uChromaScale'),
+      uHover: gl.getUniformLocation(prog, 'uHover')
+    };
+
+    function buildCurvedMesh(width, height, radius, segX = 34, segY = 14) {
+      const verts = [], indices = [];
+      const arc = width / radius;
+      for (let iy = 0; iy <= segY; iy++) {
+        const fy = iy / segY, py = (fy - 0.5) * height;
+        for (let ix = 0; ix <= segX; ix++) {
+          const fx = ix / segX, th = (fx - 0.5) * arc;
+          const nx = Math.sin(th), nz = Math.cos(th);
+          verts.push(radius * nx, py, radius * nz, nx, 0, nz, fx, fy);
+        }
+      }
+      const stride = segX + 1;
+      for (let iy = 0; iy < segY; iy++) {
+        for (let ix = 0; ix < segX; ix++) {
+          const a = iy * stride + ix, b = a + 1, c = a + stride, d = c + 1;
+          indices.push(a, b, d, a, d, c);
+        }
+      }
+      const vbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+      const ibo = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+      return { vbo, ibo, count: indices.length };
+    }
+
+    function createCardTexture(drawerKey) {
+      const c = document.createElement('canvas');
+      c.width = TEX_W; c.height = TEX_H;
+      const ctx = c.getContext('2d');
+      ctx.setTransform(1, 0, 0, TEX_H / LOGICAL_H, 0, 0);
+      cardDrawers[drawerKey](ctx, LOGICAL_W, LOGICAL_H, 0);
+
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      if (anisoExt) gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
+      return { canvas: c, ctx, tex, drawerKey };
+    }
+
+    const MAIN_R = 3.85, BACK_R = 4.35;
+    const cards = [];
+
+    const mainDefs = [
+      { key: 'cbdSeo', w: 2.38, h: 1.60 },
+      { key: 'heartline', w: 2.86, h: 1.54 },
+      { key: 'categories', w: 2.68, h: 1.54 },
+      { key: 'restrictedSeo', w: 2.68, h: 1.54 },
+      { key: 'nostalgia', w: 1.98, h: 1.70 },
+      { key: 'atelier', w: 2.55, h: 1.54 },
+      { key: 'pulse', w: 2.55, h: 1.54 },
+      { key: 'form08', w: 2.50, h: 1.54 }
     ];
 
-    const NUM_CARDS = 8; // 8 cards around 360° ring (45° per slot = 37° card arc + 8° dark gap)
-    const ANGLE_STEP = (Math.PI * 2) / NUM_CARDS; // 45 degrees in radians
-
-    // Create high-DPI offscreen canvases and Three.js CanvasTextures for all 8 cards
-    const cardStates = cardRenderers.map((item) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = CARD_TEX_W;
-      canvas.height = CARD_TEX_H;
-      const ctx = canvas.getContext('2d');
-
-      item.draw(ctx, 0, false);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-      return {
-        ...item,
-        canvas,
-        ctx,
-        texture,
-        currentBrightness: 1.0,
-        targetBrightness: 1.0
-      };
-    });
-
-    // Unified Cylinder Tilt Assembly:
-    // Tilted at -10.8 degrees (rotation.z) with slight 2.2 degree pitch (rotation.x)
-    const cylinderAssembly = new THREE.Group();
-    cylinderAssembly.rotation.z = THREE.MathUtils.degToRad(-10.8);
-    cylinderAssembly.rotation.x = THREE.MathUtils.degToRad(2.2);
-    cylinderAssembly.position.set(0, -0.06, 0);
-    scene.add(cylinderAssembly);
-
-    // Center Sharp Foreground Ring
-    const foregroundRing = new THREE.Group();
-    cylinderAssembly.add(foregroundRing);
-
-    const CYLINDER_RADIUS = 5.15;
-    const CARD_ARC_RAD = THREE.MathUtils.degToRad(37); // 37° card arc (with 8° gap between cards)
-    const CARD_HEIGHT = 1.98; // Sleek 1.68:1 aspect ratio
-    const cardGeometry = createCurvedCardGeometry(CYLINDER_RADIUS, CARD_ARC_RAD, CARD_HEIGHT, 64, 24);
-
-    const foregroundMeshes = [];
-
-    cardStates.forEach((state, index) => {
-      const material = new THREE.ShaderMaterial({
-        vertexShader: foregroundVertexShader,
-        fragmentShader: foregroundFragmentShader,
-        uniforms: {
-          uTexture: { value: state.texture },
-          uBrightness: { value: 1.0 },
-          uAspect: { value: new THREE.Vector2(1.68, 1.0) },
-          uCornerRadius: { value: 0.082 }
-        },
-        transparent: true,
-        side: THREE.DoubleSide
+    mainDefs.forEach((d, i) => {
+      cards.push({
+        tier: 'main', isBackground: false, radius: MAIN_R, w: d.w, h: d.h, aspect: d.w / d.h,
+        slotAngle: i * ((Math.PI * 2) / mainDefs.length),
+        mesh: buildCurvedMesh(d.w, d.h, MAIN_R),
+        texObj: createCardTexture(d.key),
+        hoverVal: 0, model: null, depthZ: 0
       });
-
-      const mesh = new THREE.Mesh(cardGeometry, material);
-      mesh.rotation.y = -index * ANGLE_STEP;
-      mesh.userData = { cardIndex: index, state, material };
-
-      foregroundRing.add(mesh);
-      foregroundMeshes.push(mesh);
     });
 
-    // Upper & Lower Chromatic-Aberrated Reflection Rings positioned along local Y-axis at y = +2.52 and y = -2.52
-    const bgUpperRing = new THREE.Group();
-    bgUpperRing.position.set(0, 2.52, 0);
-    cylinderAssembly.add(bgUpperRing);
+    const topDefs = [
+      { key: 'womanPhone', w: 2.75, h: 1.55 },
+      { key: 'silverStacked', w: 2.82, h: 1.55 },
+      { key: 'atelier', w: 2.60, h: 1.50 },
+      { key: 'pulse', w: 2.60, h: 1.50 },
+      { key: 'womanPhone', w: 2.75, h: 1.55 },
+      { key: 'cbdSeo180', w: 2.40, h: 1.55 }
+    ];
 
-    const bgLowerRing = new THREE.Group();
-    bgLowerRing.position.set(0, -2.52, 0);
-    cylinderAssembly.add(bgLowerRing);
-
-    const bgMaterials = [];
-
-    // Upper Reflected Ring (shows mirrored cards with RGB chromatic dispersion above the main ring)
-    const upperOrder = [3, 4, 1, 2, 0, 7, 6, 5];
-    upperOrder.forEach((cardIdx, slotIdx) => {
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: foregroundVertexShader,
-        fragmentShader: backgroundFragmentShader,
-        uniforms: {
-          uTexture: { value: cardStates[cardIdx].texture },
-          uChromaStrength: { value: 1.0 },
-          uAspect: { value: new THREE.Vector2(1.68, 1.0) },
-          uCornerRadius: { value: 0.082 }
-        },
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
+    topDefs.forEach((d, i) => {
+      cards.push({
+        tier: 'top', isBackground: true, radius: BACK_R, w: d.w, h: d.h, aspect: d.w / d.h,
+        slotAngle: i * ((Math.PI * 2) / topDefs.length),
+        mesh: buildCurvedMesh(d.w, d.h, BACK_R),
+        texObj: createCardTexture(d.key),
+        hoverVal: 0, model: null, depthZ: 0
       });
-      bgMaterials.push(mat);
-
-      const mesh = new THREE.Mesh(cardGeometry, mat);
-      mesh.rotation.y = -slotIdx * ANGLE_STEP + 0.12;
-      bgUpperRing.add(mesh);
     });
 
-    // Lower Reflected Ring (shows mirrored MASTER 440+ & RESTRICTED MARKET cards below the main ring)
-    const lowerOrder = [4, 7, 2, 1, 0, 6, 5, 3];
-    lowerOrder.forEach((cardIdx, slotIdx) => {
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: foregroundVertexShader,
-        fragmentShader: backgroundFragmentShader,
-        uniforms: {
-          uTexture: { value: cardStates[cardIdx].texture },
-          uChromaStrength: { value: 1.05 },
-          uAspect: { value: new THREE.Vector2(1.68, 1.0) },
-          uCornerRadius: { value: 0.082 }
-        },
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
+    const bottomDefs = [
+      { key: 'master180', w: 2.75, h: 1.55 },
+      { key: 'restrictedSeo', w: 2.65, h: 1.50 },
+      { key: 'form08', w: 2.60, h: 1.50 },
+      { key: 'master180', w: 2.75, h: 1.55 },
+      { key: 'pulse', w: 2.60, h: 1.50 },
+      { key: 'atelier', w: 2.60, h: 1.50 }
+    ];
+
+    bottomDefs.forEach((d, i) => {
+      cards.push({
+        tier: 'bottom', isBackground: true, radius: BACK_R, w: d.w, h: d.h, aspect: d.w / d.h,
+        slotAngle: i * ((Math.PI * 2) / bottomDefs.length) + 0.35,
+        mesh: buildCurvedMesh(d.w, d.h, BACK_R),
+        texObj: createCardTexture(d.key),
+        hoverVal: 0, model: null, depthZ: 0
       });
-      bgMaterials.push(mat);
-
-      const mesh = new THREE.Mesh(cardGeometry, mat);
-      mesh.rotation.y = -slotIdx * ANGLE_STEP - 0.14;
-      bgLowerRing.add(mesh);
     });
 
-    // ============================================================================
-    // 4. INTERACTION, RAYCAST HOVER DIMMING, AUTO-ORBIT & COMPACT UI CONTROLS
-    // ============================================================================
+    function redrawAllTextures(time) {
+      for (const card of cards) {
+        const { canvas: c, ctx, tex, drawerKey } = card.texObj;
+        ctx.setTransform(1, 0, 0, TEX_H / LOGICAL_H, 0, 0);
+        cardDrawers[drawerKey](ctx, LOGICAL_W, LOGICAL_H, time);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, c);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      }
+    }
 
-    // Exact starting angle at t = 00:00 of the reference video:
-    // White Categories Card is at center-left (-0.21 rad), IN A RESTRICTED MARKET is at center-right,
-    // HEARTLINE edge is peeking in on the far left, and "No sigas líderes" is on the far right.
-    const INITIAL_RING_ROTATION = -0.21;
-    // Speed calibrated so 6.5 seconds of auto-rotation matches 00:00 -> 00:06.5 in the reference video
-    const VIDEO_ANGULAR_SPEED = 0.172; // radians per second
+    // -------------------------------------------------------------------------
+    // 5. Analytic Curved-Cylinder Ray Intersection for Exact Card Hover/Click
+    // -------------------------------------------------------------------------
+    function hitTestFrontCards(ndcX, ndcY, invVP) {
+      const nearPt = unproject(ndcX, ndcY, -1, invVP);
+      const farPt = unproject(ndcX, ndcY, 1, invVP);
+      const rDx = farPt[0] - nearPt[0], rDy = farPt[1] - nearPt[1], rDz = farPt[2] - nearPt[2];
 
-    let currentRotation = INITIAL_RING_ROTATION;
-    let targetRotation = INITIAL_RING_ROTATION;
-    let speedMultiplier = 1.0;
-    let isVideoMode = false;
+      let bestCard = null, bestT = Infinity;
+      for (const card of cards) {
+        if (card.isBackground || !card.model) continue;
+        const invM = mat4Invert(card.model);
+        if (!invM) continue;
+        const ox = invM[0]*nearPt[0] + invM[4]*nearPt[1] + invM[8]*nearPt[2] + invM[12];
+        const oy = invM[1]*nearPt[0] + invM[5]*nearPt[1] + invM[9]*nearPt[2] + invM[13];
+        const oz = invM[2]*nearPt[0] + invM[6]*nearPt[1] + invM[10]*nearPt[2] + invM[14];
+        const dx = invM[0]*rDx + invM[4]*rDy + invM[8]*rDz;
+        const dy = invM[1]*rDx + invM[5]*rDy + invM[9]*rDz;
+        const dz = invM[2]*rDx + invM[6]*rDy + invM[10]*rDz;
 
-    // Pointer / Drag / Raycaster state
-    const raycaster = new THREE.Raycaster();
-    const pointerNDC = new THREE.Vector2(-10, -10);
-    let isDragging = false;
-    let dragStartX = 0;
-    let dragStartRotation = 0;
-    let lastInteractionTime = -10;
-    let hoveredCardState = null;
+        const A = dx*dx + dz*dz, B = 2 * (ox*dx + oz*dz), C = ox*ox + oz*oz - card.radius*card.radius;
+        const disc = B*B - 4*A*C;
+        if (disc < 0 || A < 1e-8) continue;
+        const sq = Math.sqrt(disc);
+        const t = (-B - sq) / (2 * A);
+        if (t <= 0 || t >= bestT) continue;
 
-    container.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      dragStartX = e.clientX;
-      dragStartRotation = targetRotation;
-      container.classList.add('dragging');
+        const hx = ox + dx * t, hy = oy + dy * t, hz = oz + dz * t;
+        if (hz < 0) continue;
+        const halfArc = (card.w / card.radius) * 0.5;
+        if (Math.abs(hy) <= card.h * 0.5 && Math.abs(Math.atan2(hx, hz)) <= halfArc) {
+          bestT = t;
+          bestCard = card;
+        }
+      }
+      return bestCard;
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Interactions & UI Controls
+    // -------------------------------------------------------------------------
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.floor(window.innerWidth * dpr), h = Math.floor(window.innerHeight * dpr);
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      gl.viewport(0, 0, w, h);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    canvas.addEventListener('pointerdown', (e) => {
+      state.isDragging = true;
+      state.dragDistance = 0;
+      state.targetAngle = null;
+      state.lastX = e.clientX;
+      state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+      state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+      container.classList.add('is-dragging');
     });
 
     window.addEventListener('pointermove', (e) => {
-      // Update normalized device coordinates for raycast hover dimming
-      pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointerNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-      if (isDragging) {
-        const deltaX = e.clientX - dragStartX;
-        targetRotation = dragStartRotation + deltaX * 0.0038;
-        lastInteractionTime = performance.now() * 0.001;
+      state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+      state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+      if (state.isDragging) {
+        const dx = e.clientX - state.lastX;
+        state.dragDistance += Math.abs(dx);
+        const deltaAngle = (dx / window.innerWidth) * 3.4;
+        state.mainAngle += deltaAngle;
+        state.velocity = deltaAngle * 42;
+        state.lastX = e.clientX;
       }
     });
 
-    window.addEventListener('pointerup', () => {
-      if (isDragging) {
-        isDragging = false;
-        container.classList.remove('dragging');
+    const endDrag = () => {
+      if (!state.isDragging) return;
+      state.isDragging = false;
+      container.classList.remove('is-dragging');
+      if (state.dragDistance < 6 && state.hoveredCard) {
+        const twoPi = Math.PI * 2, target = -state.hoveredCard.slotAngle;
+        const diff = ((target - state.mainAngle + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
+        state.targetAngle = state.mainAngle + diff;
+        state.velocity = 0;
       }
-    });
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
 
-    // Smooth wheel / trackpad scrolling
-    window.addEventListener('wheel', (e) => {
+    canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      targetRotation += delta * 0.0014;
-      lastInteractionTime = performance.now() * 0.001;
+      state.targetAngle = null;
+      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 0.0014;
+      state.velocity += delta * 18;
     }, { passive: false });
 
-    // Clicking a card without dragging centers it smoothly
-    container.addEventListener('click', (e) => {
-      if (Math.abs(e.clientX - dragStartX) > 6) return;
-      if (hoveredCardState) {
-        const idx = cardStates.indexOf(hoveredCardState);
-        if (idx !== -1) {
-          // Find nearest equivalent angle to center that card
-          const desiredBase = idx * ANGLE_STEP;
-          const twoPi = Math.PI * 2;
-          const diff = ((desiredBase - targetRotation + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
-          targetRotation += diff;
-          lastInteractionTime = performance.now() * 0.001;
-        }
+    const modePill = document.getElementById('modePill');
+    const btnPhoto = document.getElementById('btnPhoto');
+    const btnVideo = document.getElementById('btnVideo');
+    function setMode(next) {
+      if (state.mode === next) return;
+      state.mode = next;
+      modePill.dataset.mode = next;
+      btnPhoto.classList.toggle('active', next === 'photo');
+      btnVideo.classList.toggle('active', next === 'video');
+      btnPhoto.setAttribute('aria-selected', String(next === 'photo'));
+      btnVideo.setAttribute('aria-selected', String(next === 'video'));
+      state.velocity += next === 'video' ? 0.55 : -0.45;
+      redrawAllTextures(state.elapsed);
+    }
+    btnPhoto.addEventListener('click', () => setMode('photo'));
+    btnVideo.addEventListener('click', () => setMode('video'));
+
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const ctrlSpeed = document.getElementById('ctrlSpeed');
+    const ctrlTilt = document.getElementById('ctrlTilt');
+    const ctrlChroma = document.getElementById('ctrlChroma');
+    const ctrlParallax = document.getElementById('ctrlParallax');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = settingsPanel.classList.toggle('open');
+      settingsBtn.classList.toggle('active', open);
+      settingsPanel.setAttribute('aria-hidden', String(!open));
+    });
+    window.addEventListener('click', (e) => {
+      if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+        settingsPanel.classList.remove('open');
+        settingsBtn.classList.remove('active');
+        settingsPanel.setAttribute('aria-hidden', 'true');
       }
     });
+    ctrlSpeed.addEventListener('input', () => { state.autoSpeed = parseFloat(ctrlSpeed.value); document.getElementById('valSpeed').textContent = state.autoSpeed.toFixed(2); });
+    ctrlTilt.addEventListener('input', () => { state.tiltDeg = parseFloat(ctrlTilt.value); document.getElementById('valTilt').textContent = state.tiltDeg + '°'; });
+    ctrlChroma.addEventListener('input', () => { state.chromaScale = parseFloat(ctrlChroma.value); document.getElementById('valChroma').textContent = state.chromaScale.toFixed(2); });
+    ctrlParallax.addEventListener('input', () => { state.parallaxScale = parseFloat(ctrlParallax.value); document.getElementById('valParallax').textContent = state.parallaxScale.toFixed(2); });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state.autoSpeed = 0.14; state.tiltDeg = -12; state.chromaScale = 1.0; state.parallaxScale = 1.0;
+      ctrlSpeed.value = '0.14'; ctrlTilt.value = '-12'; ctrlChroma.value = '1.0'; ctrlParallax.value = '1.0';
+      document.getElementById('valSpeed').textContent = '0.14';
+      document.getElementById('valTilt').textContent = '-12°';
+      document.getElementById('valChroma').textContent = '1.00';
+      document.getElementById('valParallax').textContent = '1.00';
+    });
 
-    // PHOTO | VIDEO Toggle Pill Controls
-    const modeToggle = document.getElementById('mode-toggle');
-    const btnPhoto = document.getElementById('btn-photo');
-    const btnVideo = document.getElementById('btn-video');
+    // Refresh textures silently once Google Fonts finish loading
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => redrawAllTextures(state.elapsed)).catch(() => {});
+    }
 
-    function setDisplayMode(mode) {
-      isVideoMode = mode === 'video';
-      modeToggle.setAttribute('data-mode', mode);
-      if (isVideoMode) {
-        btnVideo.classList.add('active');
-        btnVideo.classList.remove('inactive');
-        btnPhoto.classList.add('inactive');
-        btnPhoto.classList.remove('active');
+    // -------------------------------------------------------------------------
+    // 7. Render Loop
+    // -------------------------------------------------------------------------
+    let prev = performance.now();
+    function frame(now) {
+      requestAnimationFrame(frame);
+      const dt = Math.min((now - prev) / 1000, 0.05);
+      prev = now;
+      state.elapsed += dt;
+
+      if (!state.isDragging) {
+        if (state.targetAngle !== null) {
+          const diff = state.targetAngle - state.mainAngle;
+          state.mainAngle += diff * Math.min(1, dt * 6.5);
+          if (Math.abs(diff) < 0.002) state.targetAngle = null;
+        } else {
+          state.mainAngle += (state.autoSpeed + state.velocity) * dt;
+          state.velocity *= Math.pow(0.05, dt);
+        }
+      }
+
+      const lerpAlpha = Math.min(1, dt * 5.2);
+      state.smoothX += (state.ndcX - state.smoothX) * lerpAlpha;
+      state.smoothY += (state.ndcY - state.smoothY) * lerpAlpha;
+      state.currentTiltDeg += (state.tiltDeg - state.currentTiltDeg) * Math.min(1, dt * 8);
+
+      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      const baseZ = aspect < 1.05 ? 7.95 / Math.max(0.50, aspect * 0.88) : 7.95;
+      const pS = state.parallaxScale;
+      const camPos = [-state.smoothX * 0.22 * pS, -0.18 + state.smoothY * 0.24 * pS, baseZ];
+
+      const proj = mat4Perspective((38 * Math.PI) / 180, aspect, 0.1, 60);
+      const view = mat4LookAt(camPos, [0, 0.04, 0], [0, 1, 0]);
+      const viewProj = mat4Mul(proj, view);
+      const invVP = mat4Invert(viewProj);
+
+      const stageM = mat4TRS(0, 0, 0, -state.smoothY * 0.09 * pS, state.smoothX * 0.11 * pS, 0);
+      const mainM = mat4Mul(stageM, mat4TRS(0, 0, 0, -0.095, state.mainAngle, (state.currentTiltDeg * Math.PI) / 180));
+      const topM  = mat4Mul(stageM, mat4TRS(0, 1.56, -1.25, 0.08, -state.mainAngle * 0.65 - 1.1, (9.5 * Math.PI) / 180));
+      const botM  = mat4Mul(stageM, mat4TRS(0, -1.62, -1.25, -0.08, state.mainAngle * 0.55 + 0.65, (9.5 * Math.PI) / 180));
+
+      for (const card of cards) {
+        const tierM = card.tier === 'main' ? mainM : (card.tier === 'top' ? topM : botM);
+        card.model = mat4Mul(tierM, mat4TRS(0, 0, 0, 0, card.slotAngle, 0));
+        // Card center in world space is local (0, 0, radius)
+        const cz = card.model[8] * card.radius + card.model[14];
+        card.depthZ = cz;
+      }
+
+      if (!state.isDragging && invVP) {
+        state.hoveredCard = hitTestFrontCards(state.ndcX, state.ndcY, invVP);
+        container.classList.toggle('is-hovering', Boolean(state.hoveredCard));
       } else {
-        btnPhoto.classList.add('active');
-        btnPhoto.classList.remove('inactive');
-        btnVideo.classList.add('inactive');
-        btnVideo.classList.remove('active');
-        // Re-render crisp static frame once
-        cardStates.forEach((st) => {
-          st.draw(st.ctx, 0, false);
-          st.texture.needsUpdate = true;
-        });
+        state.hoveredCard = null;
+        container.classList.remove('is-hovering');
+      }
+
+      if (state.mode === 'video' && now - state.lastVideoDraw > 33) {
+        state.lastVideoDraw = now;
+        redrawAllTextures(state.elapsed);
+      }
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.uniformMatrix4fv(loc.uViewProj, false, viewProj);
+      gl.uniform3fv(loc.uCamPos, camPos);
+      gl.uniform1f(loc.uCornerRadius, 0.068);
+      gl.uniform1f(loc.uChromaScale, state.chromaScale);
+
+      // Sort back-to-front for flawless overlapping transparency & depth occlusion
+      const sorted = cards.slice().sort((a, b) => a.depthZ - b.depthZ);
+      for (const card of sorted) {
+        const targetHover = !card.isBackground && card === state.hoveredCard ? 1.0 : 0.0;
+        card.hoverVal += (targetHover - card.hoverVal) * Math.min(1, dt * 10);
+
+        gl.uniformMatrix4fv(loc.uModel, false, card.model);
+        gl.uniform1f(loc.uAspect, card.aspect);
+        gl.uniform1f(loc.uIsBackground, card.isBackground ? 1.0 : 0.0);
+        gl.uniform1f(loc.uHover, card.hoverVal);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, card.texObj.tex);
+        gl.uniform1i(loc.uMap, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, card.mesh.vbo);
+        gl.enableVertexAttribArray(loc.aPos);
+        gl.vertexAttribPointer(loc.aPos, 3, gl.FLOAT, false, 32, 0);
+        gl.enableVertexAttribArray(loc.aNorm);
+        gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 32, 12);
+        gl.enableVertexAttribArray(loc.aUv);
+        gl.vertexAttribPointer(loc.aUv, 2, gl.FLOAT, false, 32, 24);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, card.mesh.ibo);
+        gl.drawElements(gl.TRIANGLES, card.mesh.count, gl.UNSIGNED_SHORT, 0);
       }
     }
 
-    btnPhoto.addEventListener('click', () => setDisplayMode('photo'));
-    btnVideo.addEventListener('click', () => setDisplayMode('video'));
-
-    // Settings Tuner Panel Controls
-    const settingsTrigger = document.getElementById('settings-trigger');
-    const tunerPanel = document.getElementById('tuner-panel');
-    const resetSceneBtn = document.getElementById('reset-scene-btn');
-    const sliderScale = document.getElementById('slider-scale');
-    const sliderSpeed = document.getElementById('slider-speed');
-    const sliderTilt = document.getElementById('slider-tilt');
-    const sliderChroma = document.getElementById('slider-chroma');
-    const valScale = document.getElementById('val-scale');
-    const valSpeed = document.getElementById('val-speed');
-    const valTilt = document.getElementById('val-tilt');
-    const valChroma = document.getElementById('val-chroma');
-
-    settingsTrigger.addEventListener('click', () => {
-      tunerPanel.classList.toggle('open');
-    });
-
-    resetSceneBtn.addEventListener('click', () => {
-      targetRotation = INITIAL_RING_ROTATION;
-      currentRotation = INITIAL_RING_ROTATION;
-      userScale = 1.0;
-      sliderScale.value = '1.00';
-      valScale.textContent = '100%';
-      updateCameraResponsiveDistance();
-
-      sliderSpeed.value = '1.0';
-      speedMultiplier = 1.0;
-      valSpeed.textContent = '1.0x';
-
-      sliderTilt.value = '-10.8';
-      cylinderAssembly.rotation.z = THREE.MathUtils.degToRad(-10.8);
-      valTilt.textContent = '-10.8°';
-
-      sliderChroma.value = '1.0';
-      valChroma.textContent = '100%';
-      bgMaterials.forEach((m) => (m.uniforms.uChromaStrength.value = 1.0));
-    });
-
-    document.querySelectorAll('.ts-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const sec = parseFloat(btn.getAttribute('data-time'));
-        targetRotation = INITIAL_RING_ROTATION + sec * VIDEO_ANGULAR_SPEED;
-        lastInteractionTime = performance.now() * 0.001;
-      });
-    });
-
-    sliderScale.addEventListener('input', (e) => {
-      userScale = parseFloat(e.target.value);
-      valScale.textContent = Math.round(userScale * 100) + '%';
-      updateCameraResponsiveDistance();
-    });
-
-    sliderSpeed.addEventListener('input', (e) => {
-      speedMultiplier = parseFloat(e.target.value);
-      valSpeed.textContent = speedMultiplier.toFixed(1) + 'x';
-    });
-
-    sliderTilt.addEventListener('input', (e) => {
-      const deg = parseFloat(e.target.value);
-      cylinderAssembly.rotation.z = THREE.MathUtils.degToRad(deg);
-      valTilt.textContent = deg.toFixed(1) + '°';
-    });
-
-    sliderChroma.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      valChroma.textContent = Math.round(val * 100) + '%';
-      bgMaterials.forEach((m) => (m.uniforms.uChromaStrength.value = val));
-    });
-
-    // Responsive Window Resize
-    window.addEventListener('resize', () => {
-      updateCameraResponsiveDistance();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // ============================================================================
-    // 5. MAIN ANIMATION LOOP
-    // ============================================================================
-
-    const scrollThumb = document.getElementById('scroll-thumb');
-    let lastFrameTime = performance.now() * 0.001;
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const now = performance.now() * 0.001;
-      const dt = Math.min(0.05, now - lastFrameTime);
-      lastFrameTime = now;
-
-      // Continuous auto-rotation from left to right (matches video flow)
-      if (!isDragging && (now - lastInteractionTime > 1.2)) {
-        targetRotation += VIDEO_ANGULAR_SPEED * speedMultiplier * dt;
-      }
-
-      // Smooth inertial damping
-      currentRotation += (targetRotation - currentRotation) * 0.095;
-
-      // Apply rotation to foreground ring and synchronized upper/lower chromatic reflection rings
-      foregroundRing.rotation.y = currentRotation;
-      bgUpperRing.rotation.y = currentRotation * 0.92;
-      bgLowerRing.rotation.y = currentRotation * 0.94;
-
-      // Update custom right-edge scrollbar thumb position
-      const normalizedProgress = ((currentRotation - INITIAL_RING_ROTATION) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2);
-      const maxThumbTop = Math.max(20, window.innerHeight - 64);
-      scrollThumb.style.top = (4 + normalizedProgress * maxThumbTop * 0.25) + 'px';
-
-      // Raycast hover detection on foreground 3D cards:
-      // Exact match to reference video at 00:01 & 00:04 where hovered card dims to ~0.72 brightness
-      raycaster.setFromCamera(pointerNDC, camera);
-      const intersects = raycaster.intersectObjects(foregroundMeshes, false);
-
-      hoveredCardState = null;
-      if (intersects.length > 0 && !isDragging) {
-        const hitMesh = intersects[0].object;
-        hoveredCardState = hitMesh.userData.state;
-        container.classList.add('hovering-card');
-      } else {
-        container.classList.remove('hovering-card');
-      }
-
-      cardStates.forEach((st, idx) => {
-        st.targetBrightness = (hoveredCardState === st) ? 0.72 : 1.0;
-        st.currentBrightness += (st.targetBrightness - st.currentBrightness) * 0.14;
-        foregroundMeshes[idx].userData.material.uniforms.uBrightness.value = st.currentBrightness;
-
-        // If VIDEO mode is active, dynamically animate all card canvas textures in real time
-        if (isVideoMode) {
-          st.draw(st.ctx, now, true);
-          st.texture.needsUpdate = true;
-        }
-      });
-
-      renderer.render(scene, camera);
-    }
-
-    window.onload = function () {
-      // Re-render card textures once web fonts finish loading so typography is 100% accurate
-      if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(() => {
-          cardStates.forEach((st) => {
-            st.draw(st.ctx, 0, isVideoMode);
-            st.texture.needsUpdate = true;
-          });
-        });
-      }
-      animate();
-    };
+    requestAnimationFrame(frame);
+  })();
   </script>
 </body>
 </html>
