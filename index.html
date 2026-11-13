@@ -1,0 +1,1432 @@
+<!-- Bottom Left Gear Icon -->
+  <button class="settings-btn" id="settingsBtn" aria-label="Scene Controls" title="Scene Controls">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <!-- Settings Popover -->
+  <div class="settings-panel" id="settingsPanel" aria-hidden="true">
+    <div class="settings-title">
+      <span>Stage Controls</span>
+      <button class="settings-reset" id="resetBtn" type="button">Reset</button>
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Auto-Drift</span><span class="val" id="valSpeed">0.14</span></div>
+      <input type="range" id="ctrlSpeed" min="-0.5" max="0.5" step="0.01" value="0.14" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Stage Tilt</span><span class="val" id="valTilt">-12°</span></div>
+      <input type="range" id="ctrlTilt" min="-24" max="24" step="1" value="-12" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Chromatic Blur</span><span class="val" id="valChroma">1.00</span></div>
+      <input type="range" id="ctrlChroma" min="0" max="2" step="0.05" value="1.0" />
+    </div>
+    <div class="control-row">
+      <div class="control-label"><span>Parallax Depth</span><span class="val" id="valParallax">1.00</span></div>
+      <input type="range" id="ctrlParallax" min="0" max="2" step="0.05" value="1.0" />
+    </div>
+  </div>
+
+  <!-- Bottom Center PHOTO | VIDEO Pill Toggle -->
+  <div class="mode-pill" id="modePill" data-mode="photo" role="tablist" aria-label="Showcase Mode">
+    <div class="mode-pill-indicator"></div>
+    <button class="mode-btn active" id="btnPhoto" type="button" role="tab" aria-selected="true">PHOTO</button>
+    <button class="mode-btn" id="btnVideo" type="button" role="tab" aria-selected="false">VIDEO</button>
+  </div>
+
+  <!-- Bottom Right Badge -->
+  <a class="framer-badge" href="#top" onclick="return false;" aria-label="Made in Framer">
+    <svg width="11" height="16" viewBox="0 0 14 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 0H14V7H7L0 0ZM0 7H7L14 14H0V7ZM0 14H7V21L0 14Z" fill="#111111" />
+    </svg>
+    <span>Made in Framer</span>
+  </a>
+
+  <div id="fallback-msg">
+    <div>
+      <p style="color:#fff;font-size:16px;margin-bottom:8px;">WebGL Showcase Unavailable</p>
+      <p>Please open this file in a modern WebGL-enabled browser with internet access to load Three.js.</p>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // -------------------------------------------------------------------------
+    // 1. State & Stage Configuration
+    // -------------------------------------------------------------------------
+    const state = {
+      mode: 'photo', // 'photo' | 'video'
+      autoSpeed: 0.14,
+      tiltDeg: -12,
+      chromaScale: 1.0,
+      parallaxScale: 1.0,
+
+      mainAngle: -1.68, // Starts with HEARTLINE left, White Center, Restricted Right, Nostalgia edge
+      targetAngle: null,
+      velocity: 0,
+
+      isDragging: false,
+      dragDistance: 0,
+      lastPointerX: 0,
+      lastPointerY: 0,
+
+      pointerNDC: new THREE.Vector2(0, 0),
+      smoothPointer: new THREE.Vector2(0, 0),
+      hoveredMesh: null,
+
+      lastVideoDraw: 0,
+      elapsed: 0
+    };
+
+    const container = document.getElementById('canvas-container');
+    const fallbackEl = document.getElementById('fallback-msg');
+
+    // -------------------------------------------------------------------------
+    // 2. High-DPI Procedural Card Texture Engine (1024 x 640)
+    // -------------------------------------------------------------------------
+    const TEX_W = 1024;
+    const TEX_H = 640;
+
+    function createMiniThumb(type) {
+      const c = document.createElement('canvas');
+      c.width = 96;
+      c.height = 96;
+      const g = c.getContext('2d');
+
+      const bg = g.createLinearGradient(0, 0, 96, 96);
+      if (type === 'suit') {
+        bg.addColorStop(0, '#2a2b30');
+        bg.addColorStop(1, '#0c0d10');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 96, 96);
+        // Silhouetted shoulders + collar highlight
+        g.fillStyle = '#050507';
+        g.beginPath();
+        g.arc(48, 34, 14, 0, Math.PI * 2);
+        g.fill();
+        g.beginPath();
+        g.moveTo(16, 96);
+        g.quadraticCurveTo(22, 54, 48, 52);
+        g.quadraticCurveTo(74, 54, 80, 96);
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.45)';
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(41, 53);
+        g.lineTo(48, 72);
+        g.lineTo(55, 53);
+        g.stroke();
+      } else if (type === 'fitness') {
+        bg.addColorStop(0, '#3a3430');
+        bg.addColorStop(1, '#09090b');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 96, 96);
+        const rim = g.createRadialGradient(66, 28, 4, 52, 48, 54);
+        rim.addColorStop(0, 'rgba(255,215,175,0.55)');
+        rim.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = rim;
+        g.fillRect(0, 0, 96, 96);
+        g.fillStyle = '#09090c';
+        g.beginPath();
+        g.arc(46, 30, 12, 0, Math.PI * 2);
+        g.fill();
+        g.beginPath();
+        g.moveTo(20, 96);
+        g.lineTo(28, 50);
+        g.lineTo(66, 48);
+        g.lineTo(74, 96);
+        g.fill();
+      } else if (type === 'mindset') {
+        bg.addColorStop(0, '#1f2937');
+        bg.addColorStop(1, '#050608');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 96, 96);
+        const orb = g.createRadialGradient(54, 42, 2, 48, 46, 34);
+        orb.addColorStop(0, '#e5e7eb');
+        orb.addColorStop(0.35, '#4b5563');
+        orb.addColorStop(1, '#06070a');
+        g.fillStyle = orb;
+        g.beginPath();
+        g.arc(48, 46, 32, 0, Math.PI * 2);
+        g.fill();
+      } else {
+        bg.addColorStop(0, '#121816');
+        bg.addColorStop(1, '#050607');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 96, 96);
+        // Subtle candlestick chart bars
+        const bars = [26, 42, 34, 58, 48, 72, 62, 78];
+        bars.forEach((h, idx) => {
+          const x = 11 + idx * 10;
+          g.fillStyle = idx % 2 === 0 ? '#22c55e' : '#e5e7eb';
+          g.fillRect(x, 86 - h, 5, h * 0.55);
+          g.fillRect(x + 2, 86 - h - 8, 1, h * 0.72);
+        });
+      }
+      return c;
+    }
+
+    const thumbs = {
+      suit: createMiniThumb('suit'),
+      fitness: createMiniThumb('fitness'),
+      mindset: createMiniThumb('mindset'),
+      trading: createMiniThumb('trading')
+    };
+
+    function drawVideoChrome(ctx, w, h, t, label = 'REEL') {
+      if (state.mode !== 'video') return;
+      // Subtle top-right REC indicator + live scan progress bar at bottom
+      ctx.save();
+      const pulse = 0.55 + 0.45 * Math.sin(t * 5.0);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+      ctx.beginPath();
+      ctx.roundRect(w - 148, 28, 114, 34, 17);
+      ctx.fill();
+
+      ctx.fillStyle = `rgba(255, 59, 48, ${pulse.toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(w - 126, 45, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.font = '600 13px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, w - 112, 45.5);
+
+      const prog = ((t * 0.18) % 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.fillRect(42, h - 22, w - 84, 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillRect(42, h - 22, (w - 84) * prog, 3);
+      ctx.restore();
+    }
+
+    const cardDrawers = {
+      // 1. White Category List Card (Entrepreneurship / Physical Health / Mindset / Trading)
+      categories(ctx, w, h, t) {
+        ctx.fillStyle = '#f5f5f7';
+        ctx.fillRect(0, 0, w, h);
+
+        // Subtle studio lighting gradient across white card
+        const sheen = ctx.createLinearGradient(0, 0, w, h);
+        sheen.addColorStop(0, 'rgba(255,255,255,0.9)');
+        sheen.addColorStop(1, 'rgba(232,232,236,0.65)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, 0, w, h);
+
+        const padX = 56;
+        const rowH = (h - 72) / 4;
+        const startY = 36;
+        const activeIdx = state.mode === 'video' ? Math.floor((t * 0.9) % 4) : -1;
+
+        ctx.textBaseline = 'middle';
+
+        for (let i = 1; i < 4; i++) {
+          ctx.strokeStyle = '#e0e0e5';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(padX, startY + i * rowH);
+          ctx.lineTo(w - padX, startY + i * rowH);
+          ctx.stroke();
+        }
+
+        const drawRoundedThumb = (img, x, y, size) => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(x, y - size / 2, size, size, 8);
+          ctx.clip();
+          ctx.drawImage(img, x, y - size / 2, size, size);
+          ctx.restore();
+        };
+
+        const rows = [
+          { num: '01', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417';
+            ctx.font = '500 50px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            const txt = 'Entrepreneurship';
+            ctx.fillText(txt, padX + 20, cy);
+            const tw = ctx.measureText(txt).width;
+            drawRoundedThumb(thumbs.suit, padX + 20 + tw + 18, cy, 52);
+          }},
+          { num: '02', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417';
+            ctx.font = '500 50px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            const x0 = padX + 95;
+            ctx.fillText('Physical', x0, cy);
+            const w1 = ctx.measureText('Physical').width;
+            drawRoundedThumb(thumbs.fitness, x0 + w1 + 16, cy, 52);
+            ctx.fillText('Health', x0 + w1 + 84, cy);
+          }},
+          { num: '03', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417';
+            ctx.font = '500 50px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            const x0 = padX + 168;
+            drawRoundedThumb(thumbs.mindset, x0, cy, 52);
+            ctx.fillText('Mindset', x0 + 68, cy);
+          }},
+          { num: '04', draw: (cy, hi) => {
+            ctx.fillStyle = hi ? '#000' : '#141417';
+            ctx.font = '500 50px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            const x0 = padX + 220;
+            ctx.fillText('Trading', x0, cy);
+            const w1 = ctx.measureText('Trading').width;
+            drawRoundedThumb(thumbs.trading, x0 + w1 + 16, cy, 52);
+          }}
+        ];
+
+        rows.forEach((r, idx) => {
+          const cy = startY + idx * rowH + rowH * 0.5;
+          const isHi = idx === activeIdx;
+          if (isHi) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+            ctx.beginPath();
+            ctx.roundRect(padX - 10, startY + idx * rowH + 8, w - padX * 2 + 20, rowH - 16, 12);
+            ctx.fill();
+          }
+          r.draw(cy, isHi);
+
+          // Faded right index number
+          ctx.fillStyle = isHi ? 'rgba(20,20,25,0.55)' : '#d6d6dc';
+          ctx.font = '300 48px Inter, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText(r.num, w - padX, cy);
+        });
+
+        if (state.mode === 'video') {
+          drawVideoChrome(ctx, w, h, t, '04 REELS');
+        }
+      },
+
+      // 2. HEARTLINE Dark Red Laptop Silhouette Card
+      heartline(ctx, w, h, t) {
+        ctx.fillStyle = '#050507';
+        ctx.fillRect(0, 0, w, h);
+
+        // Ambient crimson glow behind figure
+        const pulse = state.mode === 'video' ? 1 + 0.14 * Math.sin(t * 3.5) : 1;
+        const glow = ctx.createRadialGradient(w * 0.56, h * 0.62, 10, w * 0.54, h * 0.58, 360 * pulse);
+        glow.addColorStop(0, 'rgba(255, 42, 24, 0.85)');
+        glow.addColorStop(0.32, 'rgba(185, 16, 12, 0.45)');
+        glow.addColorStop(0.7, 'rgba(65, 4, 6, 0.16)');
+        glow.addColorStop(1, 'rgba(5, 5, 7, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h);
+
+        // Subtle emerald/cyan HUD wireframe accent at top-right behind LINE
+        ctx.save();
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.25)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 6; i++) {
+          ctx.beginPath();
+          ctx.moveTo(w * 0.68, 42 + i * 16);
+          ctx.lineTo(w * 0.94, 42 + i * 16);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeRect(w * 0.66, 30, w * 0.30, 120);
+        ctx.restore();
+
+        // Giant HEARTLINE Display Headline across top
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 164px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.scale(1.06, 0.94);
+        ctx.fillText('HEARTLINE', (w / 1.06) * 0.5, 24);
+        ctx.restore();
+
+        // Red-lit figure silhouette sitting at open laptop
+        ctx.save();
+        const bodyGrad = ctx.createLinearGradient(w * 0.34, h * 0.28, w * 0.68, h * 0.96);
+        bodyGrad.addColorStop(0, '#ff4d2e');
+        bodyGrad.addColorStop(0.28, '#c8140d');
+        bodyGrad.addColorStop(0.75, '#190405');
+        bodyGrad.addColorStop(1, '#050507');
+
+        // Back / hood / head silhouette
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.34, h);
+        ctx.quadraticCurveTo(w * 0.36, h * 0.56, w * 0.43, h * 0.43);
+        ctx.quadraticCurveTo(w * 0.41, h * 0.26, w * 0.51, h * 0.26);
+        ctx.quadraticCurveTo(w * 0.59, h * 0.27, w * 0.57, h * 0.42);
+        ctx.lineTo(w * 0.63, h * 0.58);
+        ctx.lineTo(w * 0.72, h * 0.69);
+        ctx.lineTo(w * 0.67, h * 0.74);
+        ctx.lineTo(w * 0.54, h * 0.68);
+        ctx.lineTo(w * 0.50, h);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rim-lit face/hood edge glow
+        ctx.strokeStyle = 'rgba(255, 115, 70, 0.9)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.53, h * 0.27);
+        ctx.quadraticCurveTo(w * 0.58, h * 0.34, w * 0.56, h * 0.44);
+        ctx.stroke();
+
+        // Glowing Open Laptop Screen & Keyboard Base
+        const screenGlow = ctx.createLinearGradient(w * 0.68, h * 0.75, w * 0.80, h * 0.52);
+        screenGlow.addColorStop(0, 'rgba(255, 80, 45, 0.75)');
+        screenGlow.addColorStop(1, 'rgba(255, 220, 200, 0.98)');
+        ctx.strokeStyle = screenGlow;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.63, h * 0.76);
+        ctx.lineTo(w * 0.74, h * 0.76);
+        ctx.lineTo(w * 0.81, h * 0.56);
+        ctx.stroke();
+
+        // Laptop screen light cone onto face
+        const cone = ctx.createRadialGradient(w * 0.76, h * 0.63, 4, w * 0.68, h * 0.55, 220);
+        cone.addColorStop(0, `rgba(255, 120, 80, ${0.42 * pulse})`);
+        cone.addColorStop(1, 'rgba(255, 40, 20, 0)');
+        ctx.fillStyle = cone;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.74, h * 0.76);
+        ctx.lineTo(w * 0.81, h * 0.56);
+        ctx.lineTo(w * 0.48, h * 0.30);
+        ctx.lineTo(w * 0.50, h * 0.76);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Left paragraph copy
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.font = '400 20px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        const lines = [
+          'We build sites, brands,',
+          'and digital experiences',
+          'that feel alive, intentional,',
+          'and human.'
+        ];
+        lines.forEach((ln, idx) => ctx.fillText(ln, 44, 212 + idx * 27));
+
+        // Bottom-left white mini author badge (Laura Timmons)
+        ctx.save();
+        ctx.fillStyle = '#f8f8fa';
+        ctx.beginPath();
+        ctx.roundRect(44, h - 134, 226, 76, 10);
+        ctx.fill();
+
+        // Avatar circle
+        ctx.fillStyle = '#27272a';
+        ctx.beginPath();
+        ctx.arc(76, h - 96, 19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e4e4e7';
+        ctx.beginPath();
+        ctx.arc(76, h - 101, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(76, h - 83, 12, Math.PI, 0);
+        ctx.fill();
+
+        ctx.fillStyle = '#111113';
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillText('LAURA TIMMONS', 105, h - 115);
+        ctx.fillStyle = '#71717a';
+        ctx.font = '400 11px Inter, sans-serif';
+        ctx.fillText('Creative Director', 105, h - 97);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(105, h - 77, 130, 3);
+        ctx.restore();
+
+        // Micro telemetry details on right
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.font = '500 11px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('01 / DIGITAL CRAFT', w - 44, h - 54);
+        ctx.fillText('40.7128° N', w - 44, 215);
+
+        if (state.mode === 'video') {
+          // Animated waveform bars in video mode
+          ctx.save();
+          for (let b = 0; b < 24; b++) {
+            const amp = 8 + Math.abs(Math.sin(t * 5.2 + b * 0.45)) * 28;
+            ctx.fillStyle = 'rgba(255, 70, 50, 0.72)';
+            ctx.fillRect(w - 220 + b * 7, h - 86 - amp, 3.5, amp);
+          }
+          ctx.restore();
+          drawVideoChrome(ctx, w, h, t, 'LIVE');
+        }
+      },
+
+      // 3. CBD SEO — Green Wireframe Cannabis Leaf + Bold Strategy Headline
+      cbdSeo(ctx, w, h, t) {
+        ctx.fillStyle = '#090b0a';
+        ctx.fillRect(0, 0, w, h);
+
+        const ambient = ctx.createRadialGradient(w * 0.28, h * 0.46, 20, w * 0.30, h * 0.46, 380);
+        ambient.addColorStop(0, 'rgba(34, 197, 94, 0.22)');
+        ambient.addColorStop(1, 'rgba(9, 11, 10, 0)');
+        ctx.fillStyle = ambient;
+        ctx.fillRect(0, 0, w, h);
+
+        // Wireframe 7-blade botanical leaf on left
+        ctx.save();
+        ctx.translate(w * 0.26, h * 0.56);
+        const sway = state.mode === 'video' ? Math.sin(t * 1.4) * 0.05 : 0;
+        ctx.rotate(-0.18 + sway);
+
+        const blades = [
+          { ang: 0, len: 250, wid: 34 },
+          { ang: -0.46, len: 215, wid: 30 },
+          { ang: 0.46, len: 215, wid: 30 },
+          { ang: -0.95, len: 162, wid: 24 },
+          { ang: 0.95, len: 162, wid: 24 },
+          { ang: -1.42, len: 105, wid: 16 },
+          { ang: 1.42, len: 105, wid: 16 }
+        ];
+
+        // Stem
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.85)';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 125);
+        ctx.stroke();
+
+        blades.forEach((b) => {
+          ctx.save();
+          ctx.rotate(b.ang);
+          const grad = ctx.createLinearGradient(0, 0, 0, -b.len);
+          grad.addColorStop(0, 'rgba(34, 197, 94, 0.16)');
+          grad.addColorStop(1, 'rgba(74, 222, 128, 0.38)');
+          ctx.fillStyle = grad;
+          ctx.strokeStyle = 'rgba(134, 239, 172, 0.78)';
+          ctx.lineWidth = 1.6;
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(-b.wid, -b.len * 0.45, 0, -b.len);
+          ctx.quadraticCurveTo(b.wid, -b.len * 0.45, 0, 0);
+          ctx.fill();
+          ctx.stroke();
+
+          // Internal wireframe ribs
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.35)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -b.len);
+          for (let r = 0.2; r < 0.9; r += 0.16) {
+            const ry = -b.len * r;
+            const rw = b.wid * Math.sin(r * Math.PI) * 0.78;
+            ctx.moveTo(-rw, ry);
+            ctx.lineTo(0, ry - 12);
+            ctx.lineTo(rw, ry);
+          }
+          ctx.stroke();
+          ctx.restore();
+        });
+        ctx.restore();
+
+        // Bold Stacked Typography
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = '800 72px "Anton", "Bebas Neue", Impact, sans-serif';
+        const tx = 148;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('CBD SEO', tx, 58);
+        ctx.fillText("IT'S NOT JUST", tx, 130);
+        ctx.fillText("TRAFFIC-IT'S", tx, 202);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText('YOUR GROWTH', tx, 274);
+        ctx.fillText('STRATEGY', tx, 346);
+        ctx.restore();
+
+        // Micro subtitle + footer bar
+        ctx.fillStyle = 'rgba(255,255,255,0.62)';
+        ctx.font = '500 15px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('WE HELP CANNABIS BRANDS RANK ORGANICALLY WITHOUT AD BANS', w * 0.5, h - 144);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(64, h - 106);
+        ctx.lineTo(w - 64, h - 106);
+        ctx.stroke();
+
+        const cols = ['100% COMPLIANT', 'HIGH-INTENT SEO', 'MEASURABLE ROI'];
+        cols.forEach((label, idx) => {
+          const cx = w * (0.22 + idx * 0.28);
+          ctx.strokeStyle = '#4ade80';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(cx - 88, h - 62, 13, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.font = '600 14px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(label, cx - 66, h - 62);
+        });
+
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, 'CASE');
+      },
+
+      // 4. IN A RESTRICTED MARKET, SEO IS LEVERAGED (Bar Chart Card)
+      restrictedSeo(ctx, w, h, t) {
+        ctx.fillStyle = '#0c0e0d';
+        ctx.fillRect(0, 0, w, h);
+
+        const glow = ctx.createRadialGradient(w * 0.72, h * 0.78, 10, w * 0.65, h * 0.75, 460);
+        glow.addColorStop(0, 'rgba(52, 211, 153, 0.26)');
+        glow.addColorStop(1, 'rgba(12, 14, 13, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = 'rgba(167, 243, 208, 0.68)';
+        ctx.font = '600 14px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('MOST AGENCIES AVOID CANNABIS — WE ENGINEER AROUND IT', 64, 68);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '800 76px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.fillText('IN A RESTRICTED', 64, 108);
+        ctx.fillText('MARKET, SEO IS', 64, 186);
+        ctx.fillStyle = '#d1fae5';
+        ctx.fillText('LEVERAGED', 64, 264);
+
+        // Ascending architectural bar chart spectrum
+        const count = 44;
+        const startX = 64;
+        const endX = w - 64;
+        const step = (endX - startX) / count;
+        const baseY = h - 56;
+
+        for (let i = 0; i < count; i++) {
+          const p = i / (count - 1);
+          const wave = state.mode === 'video' ? Math.sin(t * 3.8 + i * 0.35) * 14 * p : 0;
+          const barH = Math.max(12, Math.pow(p, 2.05) * 235 + wave);
+          const grad = ctx.createLinearGradient(0, baseY - barH, 0, baseY);
+          grad.addColorStop(0, p > 0.7 ? '#ecfdf5' : '#6ee7b7');
+          grad.addColorStop(0.55, '#10b981');
+          grad.addColorStop(1, 'rgba(16, 185, 129, 0.08)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(startX + i * step, baseY - barH, step * 0.56, barH);
+        }
+
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, 'DATA');
+      },
+
+      // 5. Nostalgia Riders (Tall Dark Vertical Serif Card)
+      nostalgia(ctx, w, h, t) {
+        ctx.fillStyle = '#0d0c0b';
+        ctx.fillRect(0, 0, w, h);
+
+        // Moody metallic sepia vertical streaks
+        const sheen = ctx.createLinearGradient(0, 0, w, h);
+        sheen.addColorStop(0, 'rgba(255, 200, 140, 0.14)');
+        sheen.addColorStop(0.5, 'rgba(30, 26, 22, 0.45)');
+        sheen.addColorStop(1, 'rgba(0, 0, 0, 0.92)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 215, 170, 0.14)';
+        for (let i = 0; i < 18; i++) {
+          const shift = state.mode === 'video' ? ((t * 40 + i * 50) % w) : i * 56;
+          ctx.beginPath();
+          ctx.moveTo(shift, 0);
+          ctx.lineTo(shift - 90, h);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Rotated 90deg bold editorial serif
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.5);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = '#ece8df';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '700 132px "Playfair Display", Georgia, serif';
+        ctx.fillText('Nostalgia', 0, -76);
+        ctx.font = 'italic 600 112px "Playfair Display", Georgia, serif';
+        ctx.fillStyle = 'rgba(236, 232, 223, 0.86)';
+        ctx.fillText('Riders', 0, 68);
+        ctx.restore();
+
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, 'FILM');
+      },
+
+      // 6. Atelier Spatial Architecture (Extra back-side card)
+      atelier(ctx, w, h, t) {
+        ctx.fillStyle = '#08090b';
+        ctx.fillRect(0, 0, w, h);
+        const rad = ctx.createRadialGradient(w * 0.5, h * 0.5, 20, w * 0.5, h * 0.5, 420);
+        rad.addColorStop(0, 'rgba(148, 163, 184, 0.25)');
+        rad.addColorStop(1, 'rgba(8, 9, 11, 0)');
+        ctx.fillStyle = rad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(w * 0.5, h * 0.52, 165, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '700 92px "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ATELIER  07', w * 0.5, h * 0.46);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '500 16px Inter, sans-serif';
+        ctx.fillText('SPATIAL BRAND ARCHITECTURE', w * 0.5, h * 0.60);
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, 'REEL');
+      },
+
+      // 7. Kinetic Pulse Card (Extra back-side card)
+      pulse(ctx, w, h, t) {
+        ctx.fillStyle = '#070709';
+        ctx.fillRect(0, 0, w, h);
+        const orb = ctx.createRadialGradient(w * 0.68, h * 0.48, 15, w * 0.68, h * 0.48, 280);
+        orb.addColorStop(0, '#fb923c');
+        orb.addColorStop(0.45, '#be123c');
+        orb.addColorStop(1, 'rgba(7, 7, 9, 0)');
+        ctx.fillStyle = orb;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 88px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('KINETIC', 64, 165);
+        ctx.fillStyle = 'rgba(255,255,255,0.48)';
+        ctx.fillText('SYSTEMS', 64, 260);
+        ctx.font = '400 18px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.fillText('Interactive Motion & WebGL Interfaces', 64, 385);
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, 'MOTION');
+      },
+
+      // 8. Monochrome Form Card (8th slot)
+      form08(ctx, w, h, t) {
+        ctx.fillStyle = '#111215';
+        ctx.fillRect(0, 0, w, h);
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#27272a');
+        grad.addColorStop(1, '#09090b');
+        ctx.fillStyle = grad;
+        ctx.fillRect(42, 42, w - 84, h - 84);
+        ctx.fillStyle = '#fafafa';
+        ctx.font = '700 84px "Bebas Neue", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('PURE FORM 08', 78, h - 84);
+        if (state.mode === 'video') drawVideoChrome(ctx, w, h, t, '3D');
+      },
+
+      // --- BACKGROUND UPPER & LOWER CARDS ---
+
+      // Top Background: Woman holding warm glowing phone
+      womanPhone(ctx, w, h, t) {
+        ctx.fillStyle = '#0f0c0b';
+        ctx.fillRect(0, 0, w, h);
+
+        // Warm studio portrait lighting
+        const skinGlow = ctx.createRadialGradient(w * 0.56, h * 0.36, 20, w * 0.56, h * 0.40, 380);
+        skinGlow.addColorStop(0, '#f3b78f');
+        skinGlow.addColorStop(0.35, '#9d5940');
+        skinGlow.addColorStop(0.75, '#2b1815');
+        skinGlow.addColorStop(1, '#0a0808');
+        ctx.fillStyle = skinGlow;
+        ctx.fillRect(0, 0, w, h);
+
+        // Soft silhouette head & shoulders
+        ctx.fillStyle = 'rgba(255, 198, 162, 0.72)';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.56, h * 0.25, 110, 130, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(w * 0.58, h * 0.68, 210, 150, -0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Glowing orange smartphone held on left
+        const shift = state.mode === 'video' ? Math.sin(t * 2.2) * 8 : 0;
+        const phoneGlow = ctx.createRadialGradient(w * 0.24, h * 0.52 + shift, 8, w * 0.24, h * 0.52 + shift, 190);
+        phoneGlow.addColorStop(0, 'rgba(255, 125, 50, 0.95)');
+        phoneGlow.addColorStop(0.45, 'rgba(234, 65, 30, 0.45)');
+        phoneGlow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = phoneGlow;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        ctx.translate(w * 0.23, h * 0.50 + shift);
+        ctx.rotate(-0.14);
+        ctx.fillStyle = '#18181b';
+        ctx.beginPath();
+        ctx.roundRect(-42, -78, 84, 156, 14);
+        ctx.fill();
+        ctx.fillStyle = '#fb923c';
+        ctx.beginPath();
+        ctx.roundRect(-36, -70, 72, 140, 10);
+        ctx.fill();
+        ctx.restore();
+
+        // Dark frosted bottom caption strip
+        ctx.fillStyle = 'rgba(12, 12, 14, 0.78)';
+        ctx.fillRect(0, h - 125, w, 125);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 26px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('UGC Creator Campaign • Social First', 48, h - 64);
+      },
+
+      // Top Background: Silver Stacked Cards Deck
+      silverStacked(ctx, w, h, t) {
+        ctx.fillStyle = '#070709';
+        ctx.fillRect(0, 0, w, h);
+
+        // 3 layered stacked card edges peeking at the bottom
+        for (let layer = 2; layer >= 0; layer--) {
+          const offset = layer * 24;
+          const shade = 155 + (2 - layer) * 32;
+          const grad = ctx.createLinearGradient(0, 0, w, h);
+          grad.addColorStop(0, `rgb(${shade + 24}, ${shade + 25}, ${shade + 30})`);
+          grad.addColorStop(1, `rgb(${shade - 20}, ${shade - 18}, ${shade - 10})`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.roundRect(offset * 0.6, 0, w - offset * 1.2, h - (2 - layer) * 26, 28);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Warm editorial accent blob on left
+        const accent = ctx.createRadialGradient(w * 0.25, h * 0.45, 10, w * 0.25, h * 0.45, 220);
+        accent.addColorStop(0, 'rgba(249, 115, 22, 0.48)');
+        accent.addColorStop(1, 'rgba(220, 220, 226, 0)');
+        ctx.fillStyle = accent;
+        ctx.fillRect(0, 0, w, h - 56);
+
+        ctx.fillStyle = 'rgba(20, 20, 24, 0.72)';
+        ctx.font = '700 54px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ARCHIVE DECK', 64, h * 0.45);
+      },
+
+      // Bottom Background: MASTER (Rotated 180 deg just like 00:01-00:02)
+      master180(ctx, w, h, t) {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.5);
+        ctx.rotate(Math.PI);
+        ctx.fillStyle = '#f4f4f5';
+        ctx.font = '900 185px "Anton", "Bebas Neue", Impact, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('MASTER  4', 0, -40);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.font = '500 22px Inter, sans-serif';
+        ctx.fillText('BRAND SYSTEM & DIRECTION', 0, 80);
+        ctx.restore();
+      },
+
+      // Top-left 180-rotated CBD accent
+      cbdSeo180(ctx, w, h, t) {
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.5);
+        ctx.rotate(Math.PI);
+        ctx.translate(-w * 0.5, -h * 0.5);
+        cardDrawers.cbdSeo(ctx, w, h, t);
+        ctx.restore();
+      }
+    };
+
+    function createCardTexture(drawerKey) {
+      const canvas = document.createElement('canvas');
+      canvas.width = TEX_W;
+      canvas.height = TEX_H;
+      const ctx = canvas.getContext('2d');
+      cardDrawers[drawerKey](ctx, TEX_W, TEX_H, 0);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      return { canvas, ctx, texture, drawerKey };
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Curved Cylindrical Geometry & Custom Optical Shader
+    // -------------------------------------------------------------------------
+    function createCurvedCardGeometry(width, height, radius, segX = 36, segY = 16) {
+      const geo = new THREE.PlaneGeometry(width, height, segX, segY);
+      const pos = geo.attributes.position;
+      const norm = geo.attributes.normal;
+      const arcAngle = width / radius;
+
+      for (let i = 0; i < pos.count; i++) {
+        const px = pos.getX(i);
+        const py = pos.getY(i);
+        const theta = (px / width) * arcAngle;
+
+        const cx = radius * Math.sin(theta);
+        const cz = radius * Math.cos(theta);
+        pos.setXYZ(i, cx, py, cz);
+        norm.setXYZ(i, Math.sin(theta), 0, Math.cos(theta));
+      }
+      pos.needsUpdate = true;
+      norm.needsUpdate = true;
+      geo.computeBoundingSphere();
+      return geo;
+    }
+
+    const vertexShader = /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormalWorld;
+      varying vec3 vWorldPos;
+
+      uniform float uHover;
+
+      void main() {
+        vUv = uv;
+        vec3 displaced = position + normal * (uHover * 0.22);
+        vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
+        vWorldPos = worldPos.xyz;
+        vNormalWorld = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `;
+
+    const fragmentShader = /* glsl */ `
+      precision highp float;
+
+      varying vec2 vUv;
+      varying vec3 vNormalWorld;
+      varying vec3 vWorldPos;
+
+      uniform sampler2D uMap;
+      uniform float uAspect;
+      uniform float uCornerRadius;
+      uniform float uIsBackground;
+      uniform float uChromaScale;
+      uniform float uHover;
+
+      float roundedRectSDF(vec2 p, vec2 b, float r) {
+        vec2 d = abs(p) - b + vec2(r);
+        return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
+      }
+
+      vec3 sampleChromaticBokeh(sampler2D tex, vec2 uv, float blurAmt, float chromaAmt) {
+        if (blurAmt < 0.015 && chromaAmt < 0.0005) {
+          return texture2D(tex, uv).rgb;
+        }
+
+        vec3 accum = vec3(0.0);
+        float total = 0.0;
+
+        // 7-tap directional optical bokeh with RGB dispersion
+        for (int i = -3; i <= 3; i++) {
+          float fi = float(i);
+          float weight = 1.0 - abs(fi) * 0.20;
+          vec2 tapBase = uv + vec2(fi * blurAmt * 0.0065, fi * blurAmt * 0.0018);
+
+          vec2 uvR = clamp(tapBase + vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+          vec2 uvG = clamp(tapBase, vec2(0.002), vec2(0.998));
+          vec2 uvB = clamp(tapBase - vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+
+          accum.r += texture2D(tex, uvR).r * weight;
+          accum.g += texture2D(tex, uvG).g * weight;
+          accum.b += texture2D(tex, uvB).b * weight;
+          total += weight;
+        }
+        return accum / total;
+      }
+
+      void main() {
+        // SDF rounded card mask
+        vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
+        vec2 b = vec2(uAspect * 0.5, 0.5);
+        float dist = roundedRectSDF(p, b, uCornerRadius);
+        float edgeAlpha = 1.0 - smoothstep(-0.0045, 0.0045, dist);
+        if (edgeAlpha < 0.03) discard;
+
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+        vec3 nrm = normalize(vNormalWorld);
+        float facing = dot(nrm, viewDir);
+
+        // Smoothly fade cards turning behind the cylinder horizon
+        float frontVisibility = smoothstep(-0.18, 0.24, facing);
+        if (frontVisibility < 0.01) discard;
+
+        float grazing = 1.0 - clamp(abs(facing), 0.0, 1.0);
+
+        // Sharp focal center for front hero row; soft depth bokeh + RGB split on edges & back rows
+        float edgeCurve = smoothstep(0.16, 0.85, grazing);
+        float blurAmt = uIsBackground > 0.5
+          ? (0.95 + 1.15 * grazing) * uChromaScale
+          : (edgeCurve * 1.10) * uChromaScale;
+
+        float chromaAmt = uIsBackground > 0.5
+          ? (0.011 + 0.013 * grazing) * uChromaScale
+          : (edgeCurve * 0.014) * uChromaScale;
+
+        vec3 color = sampleChromaticBokeh(uMap, vUv, blurAmt, chromaAmt);
+
+        // Subtle rim specular highlight along curved edges + hover lift
+        float rim = smoothstep(0.45, 0.92, grazing) * 0.09;
+        color += vec3(rim) * (1.0 - uIsBackground * 0.65);
+        color *= (1.0 + uHover * 0.08);
+
+        // Background depth dimming
+        float depthDim = uIsBackground > 0.5 ? (0.76 - 0.22 * grazing) : 1.0;
+
+        float alpha = edgeAlpha * frontVisibility;
+        gl_FragColor = vec4(color * depthDim * alpha, alpha);
+      }
+    `;
+
+    function makeCardMaterial(texObj, aspect, isBackground) {
+      return new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        depthWrite: true,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uMap: { value: texObj.texture },
+          uAspect: { value: aspect },
+          uCornerRadius: { value: 0.068 },
+          uIsBackground: { value: isBackground ? 1.0 : 0.0 },
+          uChromaScale: { value: state.chromaScale },
+          uHover: { value: 0.0 }
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Build WebGL Scene & Three Cylindrical Tiers
+    // -------------------------------------------------------------------------
+    let renderer, scene, camera;
+    const allCards = [];
+    const interactiveCards = [];
+    const animatedTextures = [];
+
+    const stageGroup = new THREE.Group();
+    const mainGroup = new THREE.Group();
+    const topBackGroup = new THREE.Group();
+    const bottomBackGroup = new THREE.Group();
+
+    function initScene() {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance',
+        alpha: false
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 1);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      container.appendChild(renderer.domElement);
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 60);
+      camera.position.set(0, -0.18, 7.95);
+      camera.lookAt(0, 0.04, 0);
+
+      scene.add(stageGroup);
+
+      // Main Hero Ring (front)
+      const MAIN_R = 3.85;
+      mainGroup.rotation.z = THREE.MathUtils.degToRad(state.tiltDeg);
+      mainGroup.rotation.x = -0.095;
+      stageGroup.add(mainGroup);
+
+      // Upper & Lower Background Rings (deeper, counter-tilted & counter-drifting)
+      const BACK_R = 4.35;
+      topBackGroup.position.set(0, 1.56, -1.25);
+      topBackGroup.rotation.z = THREE.MathUtils.degToRad(9.5);
+      topBackGroup.rotation.x = 0.08;
+      stageGroup.add(topBackGroup);
+
+      bottomBackGroup.position.set(0, -1.62, -1.25);
+      bottomBackGroup.rotation.z = THREE.MathUtils.degToRad(9.5);
+      bottomBackGroup.rotation.x = -0.08;
+      stageGroup.add(bottomBackGroup);
+
+      // Build Front Hero Cards (8 slots around 360deg)
+      const mainDefs = [
+        { key: 'cbdSeo', w: 2.38, h: 1.60 },
+        { key: 'heartline', w: 2.86, h: 1.54 },
+        { key: 'categories', w: 2.68, h: 1.54 },
+        { key: 'restrictedSeo', w: 2.68, h: 1.54 },
+        { key: 'nostalgia', w: 1.98, h: 1.70 },
+        { key: 'atelier', w: 2.55, h: 1.54 },
+        { key: 'pulse', w: 2.55, h: 1.54 },
+        { key: 'form08', w: 2.50, h: 1.54 }
+      ];
+
+      mainDefs.forEach((def, idx) => {
+        const texObj = createCardTexture(def.key);
+        animatedTextures.push(texObj);
+        const geo = createCurvedCardGeometry(def.w, def.h, MAIN_R);
+        const mat = makeCardMaterial(texObj, def.w / def.h, false);
+        const mesh = new THREE.Mesh(geo, mat);
+
+        const slotAngle = idx * ((Math.PI * 2) / mainDefs.length);
+        const pivot = new THREE.Group();
+        pivot.rotation.y = slotAngle;
+        pivot.add(mesh);
+        mainGroup.add(pivot);
+
+        mesh.userData = {
+          slotAngle,
+          hoverTarget: 0,
+          hoverVal: 0,
+          isBackground: false
+        };
+        allCards.push(mesh);
+        interactiveCards.push(mesh);
+      });
+
+      // Build Upper Background Cards (6 slots around 360deg)
+      const topDefs = [
+        { key: 'womanPhone', w: 2.75, h: 1.55 },
+        { key: 'silverStacked', w: 2.82, h: 1.55 },
+        { key: 'atelier', w: 2.60, h: 1.50 },
+        { key: 'pulse', w: 2.60, h: 1.50 },
+        { key: 'womanPhone', w: 2.75, h: 1.55 },
+        { key: 'cbdSeo180', w: 2.40, h: 1.55 }
+      ];
+
+      topDefs.forEach((def, idx) => {
+        const texObj = createCardTexture(def.key);
+        animatedTextures.push(texObj);
+        const geo = createCurvedCardGeometry(def.w, def.h, BACK_R);
+        const mat = makeCardMaterial(texObj, def.w / def.h, true);
+        const mesh = new THREE.Mesh(geo, mat);
+
+        const pivot = new THREE.Group();
+        pivot.rotation.y = idx * ((Math.PI * 2) / topDefs.length);
+        pivot.add(mesh);
+        topBackGroup.add(pivot);
+
+        mesh.userData = { isBackground: true };
+        allCards.push(mesh);
+      });
+
+      // Build Lower Background Cards (6 slots around 360deg)
+      const bottomDefs = [
+        { key: 'master180', w: 2.75, h: 1.55 },
+        { key: 'restrictedSeo', w: 2.65, h: 1.50 },
+        { key: 'form08', w: 2.60, h: 1.50 },
+        { key: 'master180', w: 2.75, h: 1.55 },
+        { key: 'pulse', w: 2.60, h: 1.50 },
+        { key: 'atelier', w: 2.60, h: 1.50 }
+      ];
+
+      bottomDefs.forEach((def, idx) => {
+        const texObj = createCardTexture(def.key);
+        animatedTextures.push(texObj);
+        const geo = createCurvedCardGeometry(def.w, def.h, BACK_R);
+        const mat = makeCardMaterial(texObj, def.w / def.h, true);
+        const mesh = new THREE.Mesh(geo, mat);
+
+        const pivot = new THREE.Group();
+        pivot.rotation.y = idx * ((Math.PI * 2) / bottomDefs.length) + 0.35;
+        pivot.add(mesh);
+        bottomBackGroup.add(pivot);
+
+        mesh.userData = { isBackground: true };
+        allCards.push(mesh);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Pointer Drag, Wheel Scroll, Raycast Hover & Click-to-Center
+    // -------------------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const tmpWorldPos = new THREE.Vector3();
+
+    function bindInteractions() {
+      const dom = renderer.domElement;
+
+      dom.addEventListener('pointerdown', (e) => {
+        state.isDragging = true;
+        state.dragDistance = 0;
+        state.targetAngle = null;
+        state.lastPointerX = e.clientX;
+        state.lastPointerY = e.clientY;
+        container.classList.add('is-dragging');
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        state.pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+        state.pointerNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        if (state.isDragging) {
+          const dx = e.clientX - state.lastPointerX;
+          state.dragDistance += Math.abs(dx);
+          const deltaAngle = (dx / window.innerWidth) * 3.4;
+          state.mainAngle += deltaAngle;
+          state.velocity = deltaAngle * 42;
+          state.lastPointerX = e.clientX;
+          state.lastPointerY = e.clientY;
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (!state.isDragging) return;
+        state.isDragging = false;
+        container.classList.remove('is-dragging');
+
+        // Tap / click without drag centers the clicked front card smoothly
+        if (state.dragDistance < 6 && state.hoveredMesh) {
+          const slotAngle = state.hoveredMesh.userData.slotAngle;
+          const twoPi = Math.PI * 2;
+          let target = -slotAngle;
+          const diff = ((target - state.mainAngle + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
+          state.targetAngle = state.mainAngle + diff;
+          state.velocity = 0;
+        }
+      });
+
+      dom.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        state.targetAngle = null;
+        const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 0.0014;
+        state.velocity += delta * 18;
+      }, { passive: false });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. UI Controls (PHOTO/VIDEO Pill + Gear Settings Popover)
+    // -------------------------------------------------------------------------
+    function bindUI() {
+      const modePill = document.getElementById('modePill');
+      const btnPhoto = document.getElementById('btnPhoto');
+      const btnVideo = document.getElementById('btnVideo');
+
+      function setMode(nextMode) {
+        if (state.mode === nextMode) return;
+        state.mode = nextMode;
+        modePill.dataset.mode = nextMode;
+        btnPhoto.classList.toggle('active', nextMode === 'photo');
+        btnVideo.classList.toggle('active', nextMode === 'video');
+        btnPhoto.setAttribute('aria-selected', nextMode === 'photo');
+        btnVideo.setAttribute('aria-selected', nextMode === 'video');
+
+        // Gentle kinetic spin impulse on mode toggle
+        state.velocity += nextMode === 'video' ? 0.55 : -0.45;
+        redrawAllTextures(state.elapsed);
+      }
+
+      btnPhoto.addEventListener('click', () => setMode('photo'));
+      btnVideo.addEventListener('click', () => setMode('video'));
+
+      // Gear popover
+      const settingsBtn = document.getElementById('settingsBtn');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const ctrlSpeed = document.getElementById('ctrlSpeed');
+      const ctrlTilt = document.getElementById('ctrlTilt');
+      const ctrlChroma = document.getElementById('ctrlChroma');
+      const ctrlParallax = document.getElementById('ctrlParallax');
+      const resetBtn = document.getElementById('resetBtn');
+
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = settingsPanel.classList.toggle('open');
+        settingsBtn.classList.toggle('active', isOpen);
+        settingsPanel.setAttribute('aria-hidden', String(!isOpen));
+      });
+
+      window.addEventListener('click', (e) => {
+        if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+          settingsPanel.classList.remove('open');
+          settingsBtn.classList.remove('active');
+          settingsPanel.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      ctrlSpeed.addEventListener('input', () => {
+        state.autoSpeed = parseFloat(ctrlSpeed.value);
+        document.getElementById('valSpeed').textContent = state.autoSpeed.toFixed(2);
+      });
+
+      ctrlTilt.addEventListener('input', () => {
+        state.tiltDeg = parseFloat(ctrlTilt.value);
+        document.getElementById('valTilt').textContent = `${state.tiltDeg}°`;
+      });
+
+      ctrlChroma.addEventListener('input', () => {
+        state.chromaScale = parseFloat(ctrlChroma.value);
+        document.getElementById('valChroma').textContent = state.chromaScale.toFixed(2);
+        allCards.forEach((m) => (m.material.uniforms.uChromaScale.value = state.chromaScale));
+      });
+
+      ctrlParallax.addEventListener('input', () => {
+        state.parallaxScale = parseFloat(ctrlParallax.value);
+        document.getElementById('valParallax').textContent = state.parallaxScale.toFixed(2);
+      });
+
+      resetBtn.addEventListener('click', () => {
+        state.autoSpeed = 0.14;
+        state.tiltDeg = -12;
+        state.chromaScale = 1.0;
+        state.parallaxScale = 1.0;
+        ctrlSpeed.value = '0.14';
+        ctrlTilt.value = '-12';
+        ctrlChroma.value = '1.0';
+        ctrlParallax.value = '1.0';
+        document.getElementById('valSpeed').textContent = '0.14';
+        document.getElementById('valTilt').textContent = '-12°';
+        document.getElementById('valChroma').textContent = '1.00';
+        document.getElementById('valParallax').textContent = '1.00';
+        allCards.forEach((m) => (m.material.uniforms.uChromaScale.value = 1.0));
+      });
+    }
+
+    function redrawAllTextures(time) {
+      for (const tObj of animatedTextures) {
+        cardDrawers[tObj.drawerKey](tObj.ctx, TEX_W, TEX_H, time);
+        tObj.texture.needsUpdate = true;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. Animation Loop
+    // -------------------------------------------------------------------------
+    let prevTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - prevTime) / 1000, 0.05);
+      prevTime = now;
+      state.elapsed += dt;
+
+      // Update cylinder rotation & smooth inertia
+      if (!state.isDragging) {
+        if (state.targetAngle !== null) {
+          const diff = state.targetAngle - state.mainAngle;
+          state.mainAngle += diff * Math.min(1, dt * 6.5);
+          if (Math.abs(diff) < 0.002) state.targetAngle = null;
+        } else {
+          state.mainAngle += (state.autoSpeed + state.velocity) * dt;
+          state.velocity *= Math.pow(0.05, dt); // silky exponential damping
+        }
+      }
+
+      // Main ring rotates left-to-right; upper/lower background rings counter-glide
+      mainGroup.rotation.y = state.mainAngle;
+      topBackGroup.rotation.y = -state.mainAngle * 0.65 - 1.1;
+      bottomBackGroup.rotation.y = state.mainAngle * 0.55 + 0.65;
+
+      // Smooth pointer parallax & tilt
+      state.smoothPointer.lerp(state.pointerNDC, Math.min(1, dt * 5.2));
+      const pScale = state.parallaxScale;
+      stageGroup.rotation.x = -state.smoothPointer.y * 0.09 * pScale;
+      stageGroup.rotation.y = state.smoothPointer.x * 0.11 * pScale;
+      camera.position.y = -0.18 + state.smoothPointer.y * 0.24 * pScale;
+      camera.position.x = -state.smoothPointer.x * 0.22 * pScale;
+      camera.lookAt(0, 0.04, 0);
+
+      mainGroup.rotation.z = THREE.MathUtils.lerp(
+        mainGroup.rotation.z,
+        THREE.MathUtils.degToRad(state.tiltDeg),
+        Math.min(1, dt * 8)
+      );
+
+      // Hover raycasting on front-facing cards
+      if (!state.isDragging) {
+        raycaster.setFromCamera(state.pointerNDC, camera);
+        const hits = raycaster.intersectObjects(interactiveCards, false);
+        let topHit = null;
+        for (const hit of hits) {
+          hit.object.getWorldPosition(tmpWorldPos);
+          if (tmpWorldPos.z > 1.2) {
+            topHit = hit.object;
+            break;
+          }
+        }
+        state.hoveredMesh = topHit;
+        container.classList.toggle('is-hovering', Boolean(topHit));
+      } else {
+        state.hoveredMesh = null;
+        container.classList.remove('is-hovering');
+      }
+
+      // Update hover push-out & back-to-front renderOrder sorting
+      for (const card of allCards) {
+        if (!card.userData.isBackground) {
+          card.userData.hoverTarget = card === state.hoveredMesh ? 1.0 : 0.0;
+          card.userData.hoverVal += (card.userData.hoverTarget - card.userData.hoverVal) * Math.min(1, dt * 10);
+          card.material.uniforms.uHover.value = card.userData.hoverVal;
+        }
+        card.getWorldPosition(tmpWorldPos);
+        card.renderOrder = Math.round(tmpWorldPos.z * 100);
+      }
+
+      // Live animated VIDEO mode texture updates (~30fps)
+      if (state.mode === 'video' && now - state.lastVideoDraw > 33) {
+        state.lastVideoDraw = now;
+        redrawAllTextures(state.elapsed);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. Boot after Google Fonts settle
+    // -------------------------------------------------------------------------
+    async function boot() {
+      try {
+        if (document.fonts && document.fonts.ready) {
+          await Promise.race([
+            document.fonts.ready,
+            new Promise((r) => setTimeout(r, 1200))
+          ]);
+        }
+        initScene();
+        bindInteractions();
+        bindUI();
+        requestAnimationFrame(animate);
+      } catch (err) {
+        console.error(err);
+        fallbackEl.style.display = 'grid';
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
