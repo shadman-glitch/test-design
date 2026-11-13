@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Curved Cylindrical Showcase</title>
+  <title>3D Spiral Gallery</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -16,65 +16,55 @@
     #canvas-container.is-hovering { cursor: pointer; }
     .vignette-overlay {
       position: fixed; inset: 0; pointer-events: none; z-index: 2;
-      background: radial-gradient(ellipse 88% 85% at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.55) 88%, rgba(0,0,0,0.92) 100%);
+      background: radial-gradient(ellipse 90% 88% at 50% 50%, rgba(0,0,0,0) 56%, rgba(0,0,0,0.52) 86%, rgba(0,0,0,0.92) 100%);
     }
-    .settings-btn {
-      position: fixed; left: 24px; bottom: 24px; z-index: 20; width: 38px; height: 38px; border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.09); background: rgba(18,18,20,0.55);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      display: grid; place-items: center; color: rgba(255,255,255,0.62); cursor: pointer;
-      transition: color 0.25s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1), background 0.25s ease, border-color 0.25s ease;
+
+    /* Fullscreen Lightbox Modal */
+    .lightbox {
+      position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(4, 4, 6, 0.86); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+      opacity: 0; pointer-events: none; transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .settings-btn:hover { color: #fff; background: rgba(34,34,38,0.82); border-color: rgba(255,255,255,0.22); transform: rotate(45deg); }
-    .settings-btn.active { color: #fff; border-color: rgba(255,255,255,0.34); transform: rotate(90deg); }
-    .settings-panel {
-      position: fixed; left: 24px; bottom: 72px; z-index: 25; width: 258px; padding: 16px; border-radius: 16px;
-      background: rgba(16,16,19,0.86); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
-      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 48px rgba(0,0,0,0.75);
-      opacity: 0; transform: translateY(10px) scale(0.96); pointer-events: none;
-      transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1);
+    .lightbox.open { opacity: 1; pointer-events: auto; }
+    .lightbox-close {
+      position: fixed; top: 18px; right: 20px; z-index: 45;
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; border: none;
+      background: rgba(236, 236, 240, 0.94); color: #111; font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.45); transition: transform 0.18s ease, background 0.18s ease;
     }
-    .settings-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-    .settings-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .settings-reset { font-size: 10px; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); border: none; border-radius: 999px; padding: 3px 9px; cursor: pointer; }
-    .settings-reset:hover { background: rgba(255,255,255,0.18); }
-    .control-row { margin-bottom: 12px; }
-    .control-row:last-child { margin-bottom: 0; }
-    .control-label { display: flex; justify-content: space-between; font-size: 11.5px; color: rgba(255,255,255,0.85); margin-bottom: 5px; }
-    .control-label span.val { color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; }
-    input[type="range"] { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(255,255,255,0.15); border-radius: 999px; outline: none; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; cursor: pointer; }
-    .mode-pill {
-      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 20;
-      display: inline-flex; align-items: center; padding: 5px; border-radius: 9999px;
-      background: rgba(18,18,20,0.76); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.13); box-shadow: 0 14px 36px rgba(0,0,0,0.65);
+    .lightbox-close:hover { background: #fff; transform: scale(1.03); }
+    .lightbox-stage {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: min(84vw, 980px); max-height: 78vh;
+      transform: scale(0.94); transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .mode-pill-indicator {
-      position: absolute; top: 5px; left: 5px; height: calc(100% - 10px); width: calc(50% - 5px);
-      border-radius: 9999px; background: #fff; box-shadow: 0 2px 10px rgba(255,255,255,0.22);
-      transition: transform 0.42s cubic-bezier(0.22,1,0.36,1); z-index: 0;
+    .lightbox.open .lightbox-stage { transform: scale(1); }
+    .lightbox-card {
+      width: 100%; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 36px 90px rgba(0,0,0,0.85);
+      background: #08080a;
     }
-    .mode-pill[data-mode="video"] .mode-pill-indicator { transform: translateX(100%); }
-    .mode-btn {
-      position: relative; z-index: 1; border: none; background: transparent; min-width: 88px; padding: 11px 22px;
-      border-radius: 9999px; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-      text-transform: uppercase; color: rgba(255,255,255,0.64); cursor: pointer; transition: color 0.3s ease;
+    .lightbox-card canvas { display: block; width: 100%; height: 100%; }
+    .lightbox-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      color: #fff; display: grid; place-items: center; cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
     }
-    .mode-btn.active { color: #0b0b0c; }
-    .mode-btn:not(.active):hover { color: rgba(255,255,255,0.92); }
-    .framer-badge {
-      position: fixed; right: 18px; bottom: 18px; z-index: 20; display: inline-flex; align-items: center; gap: 7px;
-      padding: 7px 12px; border-radius: 8px; background: #fff; color: #111; text-decoration: none;
-      font-size: 12px; font-weight: 600; letter-spacing: -0.01em; box-shadow: 0 8px 24px rgba(0,0,0,0.55);
-      transition: transform 0.22s ease, box-shadow 0.22s ease;
+    .lightbox-nav:hover { background: rgba(255,255,255,0.24); transform: translateY(-50%) scale(1.06); }
+    .lightbox-prev { left: -56px; }
+    .lightbox-next { right: -56px; }
+    .lightbox-counter {
+      margin-top: 18px; font-size: 12px; font-weight: 500; letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.68); font-variant-numeric: tabular-nums;
     }
-    .framer-badge:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.7); }
     #fallback-msg { display: none; position: fixed; inset: 0; z-index: 50; place-items: center; text-align: center; padding: 24px; background: #000; color: #ccc; font-size: 14px; }
-    @media (max-width: 600px) {
-      .settings-btn { left: 14px; bottom: 18px; }
-      .framer-badge { right: 14px; bottom: 18px; padding: 6px 10px; font-size: 11px; }
-      .mode-btn { min-width: 72px; padding: 10px 16px; }
+
+    @media (max-width: 760px) {
+      .lightbox-stage { width: 92vw; }
+      .lightbox-prev { left: 8px; }
+      .lightbox-next { right: 8px; }
     }
   </style>
 </head>
@@ -82,46 +72,22 @@
   <div id="canvas-container"></div>
   <div class="vignette-overlay"></div>
 
-  <button class="settings-btn" id="settingsBtn" aria-label="Stage Controls" title="Stage Controls">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3.2"></circle>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-    </svg>
-  </button>
-
-  <div class="settings-panel" id="settingsPanel" aria-hidden="true">
-    <div class="settings-title">
-      <span>Stage Controls</span>
-      <button class="settings-reset" id="resetBtn" type="button">Reset</button>
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightboxClose" type="button">
+      <span>Close</span>
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 2L10 10M10 2L2 10"/></svg>
+    </button>
+    <div class="lightbox-stage">
+      <button class="lightbox-nav lightbox-prev" id="lightboxPrev" type="button" aria-label="Previous project">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="lightbox-card"><canvas id="lightboxCanvas" width="1280" height="800"></canvas></div>
+      <button class="lightbox-nav lightbox-next" id="lightboxNext" type="button" aria-label="Next project">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
     </div>
-    <div class="control-row">
-      <div class="control-label"><span>Auto-Drift</span><span class="val" id="valSpeed">0.14</span></div>
-      <input type="range" id="ctrlSpeed" min="-0.5" max="0.5" step="0.01" value="0.14" />
-    </div>
-    <div class="control-row">
-      <div class="control-label"><span>Stage Tilt</span><span class="val" id="valTilt">-12°</span></div>
-      <input type="range" id="ctrlTilt" min="-24" max="24" step="1" value="-12" />
-    </div>
-    <div class="control-row">
-      <div class="control-label"><span>Chromatic Blur</span><span class="val" id="valChroma">1.00</span></div>
-      <input type="range" id="ctrlChroma" min="0" max="2" step="0.05" value="1.0" />
-    </div>
-    <div class="control-row">
-      <div class="control-label"><span>Parallax Depth</span><span class="val" id="valParallax">1.00</span></div>
-      <input type="range" id="ctrlParallax" min="0" max="2" step="0.05" value="1.0" />
-    </div>
+    <div class="lightbox-counter" id="lightboxCounter">1 / 8</div>
   </div>
-
-  <div class="mode-pill" id="modePill" data-mode="photo" role="tablist" aria-label="Showcase Mode">
-    <div class="mode-pill-indicator"></div>
-    <button class="mode-btn active" id="btnPhoto" type="button" role="tab" aria-selected="true">PHOTO</button>
-    <button class="mode-btn" id="btnVideo" type="button" role="tab" aria-selected="false">VIDEO</button>
-  </div>
-
-  <a class="framer-badge" href="#top" onclick="return false;" aria-label="Made in Framer">
-    <svg width="11" height="16" viewBox="0 0 14 21" fill="none"><path d="M0 0H14V7H7L0 0ZM0 7H7L14 14H0V7ZM0 14H7V21L0 14Z" fill="#111111" /></svg>
-    <span>Made in Framer</span>
-  </a>
 
   <div id="fallback-msg"><p>WebGL is required and appears to be disabled in your browser settings.</p></div>
 
@@ -130,77 +96,70 @@
     'use strict';
 
     // -------------------------------------------------------------------------
-    // 1. State
+    // 1. Spiral Configuration & State
     // -------------------------------------------------------------------------
+    const STEP_ANGLE = 1.03;   // ~59 deg per card along the helix
+    const SPIRAL_PITCH = 1.06; // vertical drop per radian along helix
+    const RADIUS = 3.35;
+    const CARD_W = 2.74;
+    const CARD_H = 1.66;
+    const TOTAL_SLOTS = 16;    // 2 complete cycles of 8 projects = ~2.62 continuous turns
+    const HALF_SPAN = TOTAL_SLOTS * STEP_ANGLE * 0.5;
+
     const state = {
-      mode: 'photo',
-      autoSpeed: 0.14,
-      tiltDeg: -12,
-      currentTiltDeg: -12,
-      chromaScale: 1.0,
-      parallaxScale: 1.0,
-      mainAngle: -1.68,
-      targetAngle: null,
+      scrollAngle: -4.25,      // Starts near CBD SEO / HEARTLINE just like 00:00
       velocity: 0,
+      autoDrift: 0.085,
       isDragging: false,
-      dragDistance: 0,
+      dragDist: 0,
       lastX: 0,
+      lastY: 0,
       ndcX: 0,
       ndcY: 0,
       smoothX: 0,
       smoothY: 0,
-      hoveredCard: null,
-      lastVideoDraw: 0,
-      elapsed: 0
+      hoveredSlot: null,
+      modalOpen: false,
+      modalIndex: 0
     };
 
     const container = document.getElementById('canvas-container');
     const fallbackEl = document.getElementById('fallback-msg');
 
     // -------------------------------------------------------------------------
-    // 2. Column-Major Matrix Math (Zero External Dependencies)
+    // 2. Column-Major Matrix Math
     // -------------------------------------------------------------------------
     function mat4Mul(a, b) {
       const o = new Float32Array(16);
       for (let c = 0; c < 4; c++) {
-        const b0 = b[c * 4], b1 = b[c * 4 + 1], b2 = b[c * 4 + 2], b3 = b[c * 4 + 3];
-        o[c * 4]     = a[0]*b0 + a[4]*b1 + a[8]*b2  + a[12]*b3;
-        o[c * 4 + 1] = a[1]*b0 + a[5]*b1 + a[9]*b2  + a[13]*b3;
-        o[c * 4 + 2] = a[2]*b0 + a[6]*b1 + a[10]*b2 + a[14]*b3;
-        o[c * 4 + 3] = a[3]*b0 + a[7]*b1 + a[11]*b2 + a[15]*b3;
+        const b0 = b[c*4], b1 = b[c*4+1], b2 = b[c*4+2], b3 = b[c*4+3];
+        o[c*4]   = a[0]*b0 + a[4]*b1 + a[8]*b2  + a[12]*b3;
+        o[c*4+1] = a[1]*b0 + a[5]*b1 + a[9]*b2  + a[13]*b3;
+        o[c*4+2] = a[2]*b0 + a[6]*b1 + a[10]*b2 + a[14]*b3;
+        o[c*4+3] = a[3]*b0 + a[7]*b1 + a[11]*b2 + a[15]*b3;
       }
       return o;
     }
 
     function mat4Perspective(fovRad, aspect, near, far) {
       const f = 1 / Math.tan(fovRad * 0.5), nf = 1 / (near - far);
-      return new Float32Array([
-        f / aspect, 0, 0, 0,
-        0, f, 0, 0,
-        0, 0, (far + near) * nf, -1,
-        0, 0, 2 * far * near * nf, 0
-      ]);
+      return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
     }
 
     function mat4LookAt(eye, target, up) {
-      let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+      let zx = eye[0]-target[0], zy = eye[1]-target[1], zz = eye[2]-target[2];
       let l = Math.hypot(zx, zy, zz) || 1; zx /= l; zy /= l; zz /= l;
       let xx = up[1]*zz - up[2]*zy, xy = up[2]*zx - up[0]*zz, xz = up[0]*zy - up[1]*zx;
       l = Math.hypot(xx, xy, xz) || 1; xx /= l; xy /= l; xz /= l;
       const yx = zy*xz - zz*xy, yy = zz*xx - zx*xz, yz = zx*xy - zy*xx;
       return new Float32Array([
-        xx, yx, zx, 0, xy, yy, zy, 0, xz, yz, zz, 0,
-        -(xx*eye[0] + xy*eye[1] + xz*eye[2]),
-        -(yx*eye[0] + yy*eye[1] + yz*eye[2]),
-        -(zx*eye[0] + zy*eye[1] + zz*eye[2]),
-        1
+        xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+        -(xx*eye[0]+xy*eye[1]+xz*eye[2]), -(yx*eye[0]+yy*eye[1]+yz*eye[2]), -(zx*eye[0]+zy*eye[1]+zz*eye[2]), 1
       ]);
     }
 
     function mat4TRS(tx, ty, tz, rx, ry, rz) {
-      const cx = Math.cos(rx), sx = Math.sin(rx);
-      const cy = Math.cos(ry), sy = Math.sin(ry);
-      const cz = Math.cos(rz), sz = Math.sin(rz);
+      const cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry), cz = Math.cos(rz), sz = Math.sin(rz);
       const mT  = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, tx,ty,tz,1]);
       const mRx = new Float32Array([1,0,0,0, 0,cx,sx,0, 0,-sx,cx,0, 0,0,0,1]);
       const mRy = new Float32Array([cy,0,-sy,0, 0,1,0,0, sy,0,cy,0, 0,0,0,1]);
@@ -210,45 +169,40 @@
 
     function mat4Invert(m) {
       const inv = new Float32Array(16);
-      inv[0] = m[5]*m[10]*m[15] - m[5]*m[11]*m[14] - m[9]*m[6]*m[15] + m[9]*m[7]*m[14] + m[13]*m[6]*m[11] - m[13]*m[7]*m[10];
-      inv[4] = -m[4]*m[10]*m[15] + m[4]*m[11]*m[14] + m[8]*m[6]*m[15] - m[8]*m[7]*m[14] - m[12]*m[6]*m[11] + m[12]*m[7]*m[10];
-      inv[8] = m[4]*m[9]*m[15] - m[4]*m[11]*m[13] - m[8]*m[5]*m[15] + m[8]*m[7]*m[13] + m[12]*m[5]*m[11] - m[12]*m[7]*m[9];
-      inv[12] = -m[4]*m[9]*m[14] + m[4]*m[10]*m[13] + m[8]*m[5]*m[14] - m[8]*m[6]*m[13] - m[12]*m[5]*m[10] + m[12]*m[6]*m[9];
-      inv[1] = -m[1]*m[10]*m[15] + m[1]*m[11]*m[14] + m[9]*m[2]*m[15] - m[9]*m[3]*m[14] - m[13]*m[2]*m[11] + m[13]*m[3]*m[10];
-      inv[5] = m[0]*m[10]*m[15] - m[0]*m[11]*m[14] - m[8]*m[2]*m[15] + m[8]*m[3]*m[14] + m[12]*m[2]*m[11] - m[12]*m[3]*m[10];
-      inv[9] = -m[0]*m[9]*m[15] + m[0]*m[11]*m[13] + m[8]*m[1]*m[15] - m[8]*m[3]*m[13] - m[12]*m[1]*m[11] + m[12]*m[3]*m[9];
-      inv[13] = m[0]*m[9]*m[14] - m[0]*m[10]*m[13] - m[8]*m[1]*m[14] + m[8]*m[2]*m[13] + m[12]*m[1]*m[10] - m[12]*m[2]*m[9];
-      inv[2] = m[1]*m[6]*m[15] - m[1]*m[7]*m[14] - m[5]*m[2]*m[15] + m[5]*m[3]*m[14] + m[13]*m[2]*m[7] - m[13]*m[3]*m[6];
-      inv[6] = -m[0]*m[6]*m[15] + m[0]*m[7]*m[14] + m[4]*m[2]*m[15] - m[4]*m[3]*m[14] - m[12]*m[2]*m[7] + m[12]*m[3]*m[6];
-      inv[10] = m[0]*m[5]*m[15] - m[0]*m[7]*m[13] - m[4]*m[1]*m[15] + m[4]*m[3]*m[13] + m[12]*m[1]*m[7] - m[12]*m[3]*m[5];
-      inv[14] = -m[0]*m[5]*m[14] + m[0]*m[6]*m[13] + m[4]*m[1]*m[14] - m[4]*m[2]*m[13] - m[12]*m[1]*m[6] + m[12]*m[2]*m[5];
-      inv[3] = -m[1]*m[6]*m[11] + m[1]*m[7]*m[10] + m[5]*m[2]*m[11] - m[5]*m[3]*m[10] - m[9]*m[2]*m[7] + m[9]*m[3]*m[6];
-      inv[7] = m[0]*m[6]*m[11] - m[0]*m[7]*m[10] - m[4]*m[2]*m[11] + m[4]*m[3]*m[10] + m[8]*m[2]*m[7] - m[8]*m[3]*m[6];
-      inv[11] = -m[0]*m[5]*m[11] + m[0]*m[7]*m[9] + m[4]*m[1]*m[11] - m[4]*m[3]*m[9] - m[8]*m[1]*m[7] + m[8]*m[3]*m[5];
-      inv[15] = m[0]*m[5]*m[10] - m[0]*m[6]*m[9] - m[4]*m[1]*m[10] + m[4]*m[2]*m[9] + m[8]*m[1]*m[6] - m[8]*m[2]*m[5];
-      let det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
+      inv[0] = m[5]*m[10]*m[15]-m[5]*m[11]*m[14]-m[9]*m[6]*m[15]+m[9]*m[7]*m[14]+m[13]*m[6]*m[11]-m[13]*m[7]*m[10];
+      inv[4] = -m[4]*m[10]*m[15]+m[4]*m[11]*m[14]+m[8]*m[6]*m[15]-m[8]*m[7]*m[14]-m[12]*m[6]*m[11]+m[12]*m[7]*m[10];
+      inv[8] = m[4]*m[9]*m[15]-m[4]*m[11]*m[13]-m[8]*m[5]*m[15]+m[8]*m[7]*m[13]+m[12]*m[5]*m[11]-m[12]*m[7]*m[9];
+      inv[12] = -m[4]*m[9]*m[14]+m[4]*m[10]*m[13]+m[8]*m[5]*m[14]-m[8]*m[6]*m[13]-m[12]*m[5]*m[10]+m[12]*m[6]*m[9];
+      inv[1] = -m[1]*m[10]*m[15]+m[1]*m[11]*m[14]+m[9]*m[2]*m[15]-m[9]*m[3]*m[14]-m[13]*m[2]*m[11]+m[13]*m[3]*m[10];
+      inv[5] = m[0]*m[10]*m[15]-m[0]*m[11]*m[14]-m[8]*m[2]*m[15]+m[8]*m[3]*m[14]+m[12]*m[2]*m[11]-m[12]*m[3]*m[10];
+      inv[9] = -m[0]*m[9]*m[15]+m[0]*m[11]*m[13]+m[8]*m[1]*m[15]-m[8]*m[3]*m[13]-m[12]*m[1]*m[11]+m[12]*m[3]*m[9];
+      inv[13] = m[0]*m[9]*m[14]-m[0]*m[10]*m[13]-m[8]*m[1]*m[14]+m[8]*m[2]*m[13]+m[12]*m[1]*m[10]-m[12]*m[2]*m[9];
+      inv[2] = m[1]*m[6]*m[15]-m[1]*m[7]*m[14]-m[5]*m[2]*m[15]+m[5]*m[3]*m[14]+m[13]*m[2]*m[7]-m[13]*m[3]*m[6];
+      inv[6] = -m[0]*m[6]*m[15]+m[0]*m[7]*m[14]+m[4]*m[2]*m[15]-m[4]*m[3]*m[14]-m[12]*m[2]*m[7]+m[12]*m[3]*m[6];
+      inv[10] = m[0]*m[5]*m[15]-m[0]*m[7]*m[13]-m[4]*m[1]*m[15]+m[4]*m[3]*m[13]+m[12]*m[1]*m[7]-m[12]*m[3]*m[5];
+      inv[14] = -m[0]*m[5]*m[14]+m[0]*m[6]*m[13]+m[4]*m[1]*m[14]-m[4]*m[2]*m[13]-m[12]*m[1]*m[6]+m[12]*m[2]*m[5];
+      inv[3] = -m[1]*m[6]*m[11]+m[1]*m[7]*m[10]+m[5]*m[2]*m[11]-m[5]*m[3]*m[10]-m[9]*m[2]*m[7]+m[9]*m[3]*m[6];
+      inv[7] = m[0]*m[6]*m[11]-m[0]*m[7]*m[10]-m[4]*m[2]*m[11]+m[4]*m[3]*m[10]+m[8]*m[2]*m[7]-m[8]*m[3]*m[6];
+      inv[11] = -m[0]*m[5]*m[11]+m[0]*m[7]*m[9]+m[4]*m[1]*m[11]-m[4]*m[3]*m[9]-m[8]*m[1]*m[7]+m[8]*m[3]*m[5];
+      inv[15] = m[0]*m[5]*m[10]-m[0]*m[6]*m[9]-m[4]*m[1]*m[10]+m[4]*m[2]*m[9]+m[8]*m[1]*m[6]-m[8]*m[2]*m[5];
+      let det = m[0]*inv[0]+m[1]*inv[4]+m[2]*inv[8]+m[3]*inv[12];
       if (!det) return null;
       det = 1 / det;
       for (let i = 0; i < 16; i++) inv[i] *= det;
       return inv;
     }
 
-    function unproject(ndcX, ndcY, ndcZ, invVP) {
-      const w = invVP[3]*ndcX + invVP[7]*ndcY + invVP[11]*ndcZ + invVP[15];
-      return [
-        (invVP[0]*ndcX + invVP[4]*ndcY + invVP[8]*ndcZ + invVP[12]) / w,
-        (invVP[1]*ndcX + invVP[5]*ndcY + invVP[9]*ndcZ + invVP[13]) / w,
-        (invVP[2]*ndcX + invVP[6]*ndcY + invVP[10]*ndcZ + invVP[14]) / w
-      ];
+    function unproject(nx, ny, nz, invVP) {
+      const w = invVP[3]*nx + invVP[7]*ny + invVP[11]*nz + invVP[15];
+      return [(invVP[0]*nx+invVP[4]*ny+invVP[8]*nz+invVP[12])/w, (invVP[1]*nx+invVP[5]*ny+invVP[9]*nz+invVP[13])/w, (invVP[2]*nx+invVP[6]*ny+invVP[10]*nz+invVP[14])/w];
     }
 
     // -------------------------------------------------------------------------
-    // 3. Universal Canvas Helpers & Procedural Card Artwork (1024x512 POT)
+    // 3. Exact 8 Project Artworks (1024x640 logical -> 1024x512 POT WebGL / 1280x800 Modal)
     // -------------------------------------------------------------------------
-    const LOGICAL_W = 1024, LOGICAL_H = 640;
-    const TEX_W = 1024, TEX_H = 512;
+    const LOG_W = 1024, LOG_H = 640, TEX_W = 1024, TEX_H = 512;
 
-    function roundRectPath(ctx, x, y, w, h, r) {
+    function roundRect(ctx, x, y, w, h, r) {
       const rr = Math.min(r, w * 0.5, h * 0.5);
       ctx.beginPath();
       ctx.moveTo(x + rr, y);
@@ -259,254 +213,373 @@
       ctx.closePath();
     }
 
-    function createMiniThumb(type) {
-      const c = document.createElement('canvas');
-      c.width = 96; c.height = 96;
+    function makeThumb(kind) {
+      const c = document.createElement('canvas'); c.width = 120; c.height = 120;
       const g = c.getContext('2d');
-      const bg = g.createLinearGradient(0, 0, 96, 96);
-      if (type === 'suit') {
-        bg.addColorStop(0, '#2a2b30'); bg.addColorStop(1, '#0c0d10');
-        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
-        g.fillStyle = '#050507';
-        g.beginPath(); g.arc(48, 34, 14, 0, Math.PI * 2); g.fill();
-        g.beginPath(); g.moveTo(16, 96); g.quadraticCurveTo(22, 54, 48, 52); g.quadraticCurveTo(74, 54, 80, 96); g.fill();
-        g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5;
-        g.beginPath(); g.moveTo(41, 53); g.lineTo(48, 72); g.lineTo(55, 53); g.stroke();
-      } else if (type === 'fitness') {
-        bg.addColorStop(0, '#3a3430'); bg.addColorStop(1, '#09090b');
-        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
-        const rim = g.createRadialGradient(66, 28, 4, 52, 48, 54);
-        rim.addColorStop(0, 'rgba(255,215,175,0.55)'); rim.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = rim; g.fillRect(0, 0, 96, 96);
-        g.fillStyle = '#09090c';
-        g.beginPath(); g.arc(46, 30, 12, 0, Math.PI * 2); g.fill();
-        g.beginPath(); g.moveTo(20, 96); g.lineTo(28, 50); g.lineTo(66, 48); g.lineTo(74, 96); g.fill();
-      } else if (type === 'mindset') {
-        bg.addColorStop(0, '#1f2937'); bg.addColorStop(1, '#050608');
-        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
-        const orb = g.createRadialGradient(54, 42, 2, 48, 46, 34);
-        orb.addColorStop(0, '#e5e7eb'); orb.addColorStop(0.35, '#4b5563'); orb.addColorStop(1, '#06070a');
-        g.fillStyle = orb; g.beginPath(); g.arc(48, 46, 32, 0, Math.PI * 2); g.fill();
-      } else {
-        bg.addColorStop(0, '#121816'); bg.addColorStop(1, '#050607');
-        g.fillStyle = bg; g.fillRect(0, 0, 96, 96);
-        [26, 42, 34, 58, 48, 72, 62, 78].forEach((h, idx) => {
-          const x = 11 + idx * 10;
-          g.fillStyle = idx % 2 === 0 ? '#22c55e' : '#e5e7eb';
-          g.fillRect(x, 86 - h, 5, h * 0.55);
-          g.fillRect(x + 2, 86 - h - 8, 1, h * 0.72);
+      const bg = g.createLinearGradient(0, 0, 120, 120);
+      if (kind === 'suit') {
+        bg.addColorStop(0, '#2a2b30'); bg.addColorStop(1, '#090a0c'); g.fillStyle = bg; g.fillRect(0,0,120,120);
+        g.fillStyle = '#040406'; g.beginPath(); g.arc(60,42,17,0,Math.PI*2); g.fill();
+        g.beginPath(); g.moveTo(20,120); g.quadraticCurveTo(28,66,60,64); g.quadraticCurveTo(92,66,100,120); g.fill();
+      } else if (kind === 'fitness') {
+        bg.addColorStop(0, '#3e342d'); bg.addColorStop(1, '#09090b'); g.fillStyle = bg; g.fillRect(0,0,120,120);
+        const r = g.createRadialGradient(84,32,4,64,58,66); r.addColorStop(0,'rgba(255,215,175,0.65)'); r.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle = r; g.fillRect(0,0,120,120);
+        g.fillStyle = '#08080a'; g.beginPath(); g.arc(58,38,15,0,Math.PI*2); g.fill();
+        g.beginPath(); g.moveTo(24,120); g.lineTo(36,62); g.lineTo(82,60); g.lineTo(92,120); g.fill();
+      } else if (kind === 'mindset') {
+        bg.addColorStop(0, '#1e293b'); bg.addColorStop(1, '#050608'); g.fillStyle = bg; g.fillRect(0,0,120,120);
+        const o = g.createRadialGradient(68,52,2,60,58,40); o.addColorStop(0,'#f1f5f9'); o.addColorStop(0.4,'#475569'); o.addColorStop(1,'#050608');
+        g.fillStyle = o; g.beginPath(); g.arc(60,58,38,0,Math.PI*2); g.fill();
+      } else if (kind === 'trading') {
+        bg.addColorStop(0, '#121816'); bg.addColorStop(1, '#050607'); g.fillStyle = bg; g.fillRect(0,0,120,120);
+        [32,52,42,72,58,88,76,94].forEach((bh, i) => {
+          const x = 14 + i*12; g.fillStyle = i%2===0 ? '#22c55e' : '#e5e7eb';
+          g.fillRect(x, 108-bh, 6, bh*0.56); g.fillRect(x+2.5, 108-bh-10, 1, bh*0.74);
         });
+      } else {
+        // Warm editorial lifestyle duo photo for Network / Net-worth
+        bg.addColorStop(0, '#c89b7b'); bg.addColorStop(0.55, '#6b4735'); bg.addColorStop(1, '#1e1612');
+        g.fillStyle = bg; g.fillRect(0,0,120,120);
+        const l1 = g.createRadialGradient(44,44,4,44,50,48); l1.addColorStop(0,'#f5d0b5'); l1.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle = l1; g.fillRect(0,0,120,120);
+        g.fillStyle = '#181412'; g.beginPath(); g.arc(38,44,16,0,Math.PI*2); g.fill();
+        g.beginPath(); g.ellipse(36,96,26,34,0,0,Math.PI*2); g.fill();
+        g.fillStyle = '#2d221c'; g.beginPath(); g.arc(82,48,15,0,Math.PI*2); g.fill();
+        g.beginPath(); g.ellipse(84,96,25,32,0,0,Math.PI*2); g.fill();
+        g.fillStyle = '#f5f5f4'; g.fillRect(52,72,18,22); // cup
       }
       return c;
     }
 
     const thumbs = {
-      suit: createMiniThumb('suit'),
-      fitness: createMiniThumb('fitness'),
-      mindset: createMiniThumb('mindset'),
-      trading: createMiniThumb('trading')
+      suit: makeThumb('suit'),
+      fitness: makeThumb('fitness'),
+      mindset: makeThumb('mindset'),
+      trading: makeThumb('trading'),
+      coffee: makeThumb('coffee')
     };
 
-    function drawVideoChrome(ctx, w, h, t, label) {
-      if (state.mode !== 'video') return;
-      ctx.save();
-      const pulse = 0.55 + 0.45 * Math.sin(t * 5.0);
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      roundRectPath(ctx, w - 148, 28, 114, 34, 17);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,59,48,' + pulse.toFixed(2) + ')';
-      ctx.beginPath(); ctx.arc(w - 126, 45, 5.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = '600 13px Inter, sans-serif';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(label, w - 112, 45.5);
-      const prog = (t * 0.18) % 1;
-      ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(42, h - 22, w - 84, 3);
-      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(42, h - 22, (w - 84) * prog, 3);
-      ctx.restore();
-    }
+    const projects = [
+      // 1 / 8 : No sigas, lidera
+      function drawNoSigas(ctx, w, h) {
+        ctx.fillStyle = '#07080a'; ctx.fillRect(0, 0, w, h);
+        // Subtle mountain silhouettes at bottom
+        const sky = ctx.createRadialGradient(w*0.50, h*0.46, 30, w*0.50, h*0.46, 380);
+        sky.addColorStop(0, 'rgba(255,255,255,0.22)'); sky.addColorStop(0.45, 'rgba(148,163,184,0.08)'); sky.addColorStop(1, 'rgba(7,8,10,0)');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
 
-    const cardDrawers = {
-      categories(ctx, w, h, t) {
-        ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
-        const sheen = ctx.createLinearGradient(0, 0, w, h);
-        sheen.addColorStop(0, 'rgba(255,255,255,0.9)'); sheen.addColorStop(1, 'rgba(232,232,236,0.65)');
-        ctx.fillStyle = sheen; ctx.fillRect(0, 0, w, h);
-        const padX = 56, rowH = (h - 72) / 4, startY = 36;
-        const activeIdx = state.mode === 'video' ? Math.floor((t * 0.9) % 4) : -1;
-        ctx.textBaseline = 'middle';
-        for (let i = 1; i < 4; i++) {
-          ctx.strokeStyle = '#e0e0e5'; ctx.lineWidth = 1.6;
-          ctx.beginPath(); ctx.moveTo(padX, startY + i * rowH); ctx.lineTo(w - padX, startY + i * rowH); ctx.stroke();
-        }
-        const drawThumb = (img, x, y, size) => {
-          ctx.save(); roundRectPath(ctx, x, y - size / 2, size, size, 8); ctx.clip();
-          ctx.drawImage(img, x, y - size / 2, size, size); ctx.restore();
-        };
-        const rows = [
-          { num: '01', draw: (cy, hi) => {
-            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
-            ctx.fillText('Entrepreneurship', padX + 20, cy);
-            drawThumb(thumbs.suit, padX + 20 + ctx.measureText('Entrepreneurship').width + 18, cy, 52);
-          }},
-          { num: '02', draw: (cy, hi) => {
-            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
-            const x0 = padX + 95; ctx.fillText('Physical', x0, cy);
-            const w1 = ctx.measureText('Physical').width;
-            drawThumb(thumbs.fitness, x0 + w1 + 16, cy, 52);
-            ctx.fillText('Health', x0 + w1 + 84, cy);
-          }},
-          { num: '03', draw: (cy, hi) => {
-            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
-            const x0 = padX + 168; drawThumb(thumbs.mindset, x0, cy, 52);
-            ctx.fillText('Mindset', x0 + 68, cy);
-          }},
-          { num: '04', draw: (cy, hi) => {
-            ctx.fillStyle = hi ? '#000' : '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
-            const x0 = padX + 220; ctx.fillText('Trading', x0, cy);
-            drawThumb(thumbs.trading, x0 + ctx.measureText('Trading').width + 16, cy, 52);
-          }}
-        ];
-        rows.forEach((r, idx) => {
-          const cy = startY + idx * rowH + rowH * 0.5, isHi = idx === activeIdx;
-          if (isHi) {
-            ctx.fillStyle = 'rgba(0,0,0,0.045)';
-            roundRectPath(ctx, padX - 10, startY + idx * rowH + 8, w - padX * 2 + 20, rowH - 16, 12);
-            ctx.fill();
-          }
-          r.draw(cy, isHi);
-          ctx.fillStyle = isHi ? 'rgba(20,20,25,0.55)' : '#d6d6dc';
-          ctx.font = '300 48px Inter, sans-serif'; ctx.textAlign = 'right';
-          ctx.fillText(r.num, w - padX, cy);
+        // Glowing circular aura ring behind sage
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.62)'; ctx.lineWidth = 4;
+        ctx.shadowColor = '#fff'; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(w*0.51, h*0.43, 148, Math.PI*0.95, Math.PI*2.05); ctx.stroke();
+        ctx.restore();
+
+        // Rugged mountain horizon
+        ctx.fillStyle = '#0d0f14';
+        ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.78); ctx.lineTo(w*0.18, h*0.64); ctx.lineTo(w*0.36, h*0.74);
+        ctx.lineTo(w*0.52, h*0.58); ctx.lineTo(w*0.72, h*0.72); ctx.lineTo(w*0.88, h*0.62); ctx.lineTo(w, h*0.76); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+
+        // Bearded figure silhouette illuminated by glowing orb in center
+        ctx.fillStyle = '#181a20';
+        ctx.beginPath(); ctx.ellipse(w*0.51, h*0.68, 118, 145, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(w*0.51, h*0.37, 46, 0, Math.PI*2); ctx.fill();
+        // Hair & beard highlights
+        const faceGlow = ctx.createRadialGradient(w*0.51, h*0.54, 6, w*0.51, h*0.44, 130);
+        faceGlow.addColorStop(0, 'rgba(255,255,255,0.98)'); faceGlow.addColorStop(0.22, 'rgba(226,232,240,0.65)'); faceGlow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = faceGlow; ctx.beginPath(); ctx.arc(w*0.51, h*0.46, 130, 0, Math.PI*2); ctx.fill();
+        // Radiant orb held in hands
+        const orb = ctx.createRadialGradient(w*0.51, h*0.56, 2, w*0.51, h*0.56, 62);
+        orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.32, 'rgba(255,255,255,0.75)'); orb.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(w*0.51, h*0.56, 62, 0, Math.PI*2); ctx.fill();
+
+        // Top nav mark & Left Serif Headline
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '600 13px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('▲  KAIROS', 52, 42);
+
+        ctx.fillStyle = '#f8fafc'; ctx.font = '500 84px "Playfair Display", Georgia, serif';
+        ctx.fillText('No sigas,', 52, 232); ctx.fillText('lidera', 52, 322);
+
+        // Right paragraph
+        ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 17px Inter, sans-serif';
+        ['En cada decisión está el poder de', 'transformar tu destino. Atrévete a', 'pensar distinto y trazar un camino', 'propio hacia la grandeza.'].forEach((ln, i) => {
+          ctx.fillText(ln, w - 345, 290 + i*25);
         });
-        drawVideoChrome(ctx, w, h, t, '04 REELS');
       },
 
-      heartline(ctx, w, h, t) {
+      // 2 / 8 : MASTER 440 FSS
+      function drawMaster440(ctx, w, h) {
+        ctx.fillStyle = '#090a0d'; ctx.fillRect(0, 0, w, h);
+        // Top minimal header bar
+        ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = '700 13px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('JM SOMME', 48, 34);
+        ctx.fillStyle = 'rgba(255,255,255,0.42)'; ctx.font = '500 10px Inter, sans-serif';
+        ctx.textAlign = 'center'; ctx.fillText('OUR STORY     CANAL INFO     ABOUT US     CONTACTS', w*0.5, 36);
+        ctx.textAlign = 'right'; ctx.fillText('REQUEST A QUOTE', w - 48, 36);
+
+        // Giant Headline
+        ctx.fillStyle = '#ffffff'; ctx.font = '800 102px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.fillText('MASTER 440 FSS', 48, 108);
+
+        // Center Industrial Machine Cutout Panel
+        ctx.fillStyle = '#f1f3f6';
+        roundRect(ctx, 295, 224, 445, 416, 4); ctx.fill();
+        // Machine body
+        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(350, 260, 225, 300);
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(358, 274, 96, 162);
+        // Blue accent pillars & stainless steel mechanism
+        ctx.fillStyle = '#0284c7'; ctx.fillRect(458, 274, 42, 162);
+        ctx.fillStyle = '#0369a1'; ctx.fillRect(500, 310, 62, 126);
+        ctx.fillStyle = '#334155'; ctx.fillRect(575, 438, 120, 74); // conveyor extension
+        ctx.fillStyle = '#64748b';
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) ctx.fillRect(584 + c*13, 450 + r*12, 8, 8);
+        ctx.fillStyle = '#0f172a'; ctx.font = '700 15px Inter, sans-serif'; ctx.fillText('MASTER', 420, 520);
+        ctx.fillStyle = '#334155'; ctx.font = '600 18px Inter, sans-serif'; ctx.fillText('somme.com', 475, 578);
+
+        // Left & Right metadata
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillText('Irregular can seamer', 48, 250);
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 19px Inter, sans-serif';
+        ["The world's most", "widely used irregular", "can seaming machine"].forEach((ln, i) => ctx.fillText(ln, 48, 495 + i*26));
+
+        ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 13px Inter, sans-serif';
+        ['Easy seam adjustment  01', 'Up to 100 cans/minute  02', 'Excellent seaming quality  03', 'Heavy-duty build  04'].forEach((ln, i) => {
+          ctx.fillText(ln, w - 235, 326 + i*40);
+          ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.moveTo(w - 235, 352 + i*40); ctx.lineTo(w - 48, 352 + i*40); ctx.stroke();
+        });
+      },
+
+      // 3 / 8 : Network / Net-worth (White Card)
+      function drawNetwork(ctx, w, h) {
+        ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
+        const bg = ctx.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, '#ffffff'); bg.addColorStop(1, '#e8e8ed');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+        // Left text
+        ctx.fillStyle = '#18181b'; ctx.font = '400 56px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText('Network', 72, h*0.46);
+        ctx.fillStyle = '#71717a'; ctx.font = '400 16px Inter, sans-serif';
+        ctx.fillText('At LatticeClub', 74, h*0.55);
+
+        // Center editorial photograph
+        const pw = 210, ph = 290, px = (w - pw)*0.5, py = (h - ph)*0.5;
+        ctx.save(); roundRect(ctx, px, py, pw, ph, 14); ctx.clip();
+        ctx.drawImage(thumbs.coffee, px, py, pw, ph);
+        ctx.restore();
+        // Play badge icon in photo center
+        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+        roundRect(ctx, w*0.5 - 16, h*0.5 - 16, 32, 32, 8); ctx.fill();
+        ctx.fillStyle = '#18181b'; ctx.beginPath(); ctx.moveTo(w*0.5-4, h*0.5-6); ctx.lineTo(w*0.5+7, h*0.5); ctx.lineTo(w*0.5-4, h*0.5+6); ctx.closePath(); ctx.fill();
+
+        // Right text
+        ctx.fillStyle = '#18181b'; ctx.font = '400 56px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Net-worth', w*0.64, h*0.46);
+        ctx.fillStyle = '#71717a'; ctx.font = '400 16px Inter, sans-serif';
+        ctx.fillText('Connect, grow, succeed', w*0.64 + 2, h*0.55);
+      },
+
+      // 4 / 8 : Péče o pleť na míru (Warm Skincare Card)
+      function drawSkincare(ctx, w, h) {
+        const bg = ctx.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, '#16100c'); bg.addColorStop(0.55, '#3b2619'); bg.addColorStop(1, '#7a5438');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+        // Warm portrait glow on right
+        const glow = ctx.createRadialGradient(w*0.68, h*0.48, 20, w*0.68, h*0.52, 340);
+        glow.addColorStop(0, '#f3c6a5'); glow.addColorStop(0.45, '#b87d56'); glow.addColorStop(1, 'rgba(22,16,12,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+
+        // Woman silhouette / face portrait on right
+        ctx.fillStyle = '#241610';
+        ctx.beginPath(); ctx.ellipse(w*0.67, h*0.46, 130, 175, 0.05, 0, Math.PI*2); ctx.fill(); // hair
+        const skin = ctx.createRadialGradient(w*0.66, h*0.42, 10, w*0.66, h*0.46, 135);
+        skin.addColorStop(0, '#f5cbb0'); skin.addColorStop(0.75, '#c98e6b'); skin.addColorStop(1, '#82523a');
+        ctx.fillStyle = skin;
+        ctx.beginPath(); ctx.ellipse(w*0.66, h*0.45, 84, 108, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(w*0.67, h*0.86, 175, 130, 0, 0, Math.PI*2); ctx.fill();
+        // Facial warmth highlights
+        ctx.strokeStyle = 'rgba(72,40,28,0.65)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(w*0.63, h*0.42, 12, 0.2, Math.PI-0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w*0.70, h*0.42, 12, 0.2, Math.PI-0.2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(180,95,78,0.8)'; ctx.beginPath(); ctx.arc(w*0.66, h*0.50, 22, 0.2, Math.PI-0.2); ctx.stroke();
+
+        // Amber serum dropper bottle in hand at bottom-right
+        ctx.fillStyle = '#1c100a'; roundRect(ctx, w*0.79, h*0.48, 66, 145, 14); ctx.fill();
+        ctx.fillStyle = '#f59e0b'; roundRect(ctx, w*0.805, h*0.55, 36, 70, 6); ctx.fill();
+        ctx.fillStyle = '#09090b'; roundRect(ctx, w*0.805, h*0.41, 36, 48, 8); ctx.fill();
+
+        // Left Czech Serif Copy + Pill CTA
+        ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = '500 12px Inter, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('VERA SKIN STUDIO', w*0.5, 28);
+
+        ctx.fillStyle = '#f8f5f0'; ctx.font = '500 58px "Playfair Display", Georgia, serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Péče o pleť na', 56, 185);
+        ctx.fillText('míru. Výsledky,', 56, 250);
+        ctx.fillText('které uvidíš', 56, 315);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.68)'; ctx.font = '400 15px Inter, sans-serif';
+        ctx.fillText('Individuální kosmetické rituály pro', 56, 405);
+        ctx.fillText('přirozenou zářivost vaší pleti.', 56, 428);
+
+        ctx.fillStyle = '#f5f0e8'; roundRect(ctx, 56, 515, 152, 42, 21); ctx.fill();
+        ctx.fillStyle = '#1c140e'; ctx.font = '600 13px Inter, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Rezervovat péči', 132, 536);
+      },
+
+      // 5 / 8 : CBD SEO (Wireframe Chess Pieces + 3 Columns, exact match to 00:02)
+      function drawCbdSeo(ctx, w, h) {
+        ctx.fillStyle = '#080a09'; ctx.fillRect(0, 0, w, h);
+        const amb = ctx.createRadialGradient(w*0.28, h*0.44, 20, w*0.30, h*0.44, 340);
+        amb.addColorStop(0, 'rgba(34,197,94,0.20)'); amb.addColorStop(1, 'rgba(8,10,9,0)');
+        ctx.fillStyle = amb; ctx.fillRect(0, 0, w, h);
+
+        // Two glowing green 3D wireframe chess pieces (Queen & King)
+        const drawChessPiece = (cx, cy, scale, rot, isKing) => {
+          ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(scale, scale);
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.78)'; ctx.lineWidth = 1.6;
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.14)';
+          ctx.beginPath();
+          ctx.moveTo(-42, 130); ctx.lineTo(42, 130); ctx.lineTo(36, 108); ctx.lineTo(18, 86);
+          ctx.quadraticCurveTo(10, 10, 22, -48); ctx.lineTo(32, -62); ctx.lineTo(20, -82);
+          ctx.lineTo(0, -110); ctx.lineTo(-20, -82); ctx.lineTo(-32, -62); ctx.lineTo(-22, -48);
+          ctx.quadraticCurveTo(-10, 10, -18, 86); ctx.lineTo(-36, 108); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+
+          // Horizontal wireframe rings & vertical ribs
+          for (let y = -70; y <= 110; y += 26) {
+            const rx = y > 80 ? 34 : (y < -40 ? 22 : 16);
+            ctx.beginPath(); ctx.ellipse(0, y, rx, 6, 0, 0, Math.PI*2); ctx.stroke();
+          }
+          ctx.beginPath(); ctx.moveTo(0, -110); ctx.lineTo(0, 130); ctx.stroke();
+          if (isKing) {
+            ctx.lineWidth = 2.6;
+            ctx.beginPath(); ctx.moveTo(0, -112); ctx.lineTo(0, -138); ctx.moveTo(-11, -126); ctx.lineTo(11, -126); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(0, -118, 8, 0, Math.PI*2); ctx.stroke();
+          }
+          ctx.restore();
+        };
+
+        drawChessPiece(w*0.24, h*0.38, 1.05, -0.45, false);
+        drawChessPiece(w*0.37, h*0.36, 1.22, 0.22, true);
+
+        // Right Bold Condensed Strategy Headline
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.font = '800 62px "Anton", "Bebas Neue", Impact, sans-serif';
+        const tx = w*0.49;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('CBD SEO', tx, 54); ctx.fillText("IT'S NOT JUST", tx, 118); ctx.fillText("TRAFFIC - IT'S", tx, 182);
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText('YOUR GROWTH', tx, 246); ctx.fillText('STRATEGY', tx, 310);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.62)'; ctx.font = '500 12px Inter, sans-serif';
+        ctx.fillText('// CBD AND HEMP BRANDS CONSTANTLY FACE CHALLENGES:', tx, 392);
+
+        // Divider + 3 exact columns from 00:02
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(56, h - 155); ctx.lineTo(w - 56, h - 155); ctx.stroke();
+
+        const cols = [
+          ['SPEND THOUSANDS ON SEO', 'WITH NO RESULTS', '01  //'],
+          ['THERE IS TRAFFIC,', 'BUT NO SALES', '02  //'],
+          ['LOSS OF RANKING AFTER', 'ALGORITHM UPDATE', '03  //']
+        ];
+        cols.forEach(([l1, l2, num], i) => {
+          const cx = 74 + i * 310;
+          ctx.fillStyle = 'rgba(74, 222, 128, 0.85)'; ctx.beginPath(); ctx.arc(cx + 12, h - 110, 12, 0, Math.PI*2); ctx.stroke();
+          ctx.fillStyle = '#e5e7eb'; ctx.font = '600 13px Inter, sans-serif';
+          ctx.fillText(l1, cx + 36, h - 122); ctx.fillText(l2, cx + 36, h - 104);
+          ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.font = '500 11px Inter, sans-serif';
+          ctx.fillText(num, cx + 36, h - 76);
+        });
+      },
+
+      // 6 / 8 : HEARTLINE
+      function drawHeartline(ctx, w, h) {
         ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, w, h);
-        const pulse = state.mode === 'video' ? 1 + 0.14 * Math.sin(t * 3.5) : 1;
-        const glow = ctx.createRadialGradient(w * 0.56, h * 0.62, 10, w * 0.54, h * 0.58, 360 * pulse);
+        const glow = ctx.createRadialGradient(w*0.56, h*0.62, 10, w*0.54, h*0.58, 360);
         glow.addColorStop(0, 'rgba(255,42,24,0.85)'); glow.addColorStop(0.32, 'rgba(185,16,12,0.45)');
         glow.addColorStop(0.7, 'rgba(65,4,6,0.16)'); glow.addColorStop(1, 'rgba(5,5,7,0)');
         ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
 
         ctx.save();
-        ctx.strokeStyle = 'rgba(52,211,153,0.25)'; ctx.lineWidth = 1.5;
-        for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(w*0.68, 42+i*16); ctx.lineTo(w*0.94, 42+i*16); ctx.stroke(); }
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.strokeRect(w*0.66, 30, w*0.30, 120);
-        ctx.restore();
-
-        ctx.save();
         ctx.fillStyle = '#fff'; ctx.font = '900 164px "Anton", "Bebas Neue", Impact, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.scale(1.06, 0.94);
-        ctx.fillText('HEARTLINE', (w / 1.06) * 0.5, 24);
+        ctx.fillText('HEARTLINE', (w/1.06)*0.5, 24);
         ctx.restore();
 
-        ctx.save();
-        const bodyGrad = ctx.createLinearGradient(w*0.34, h*0.28, w*0.68, h*0.96);
-        bodyGrad.addColorStop(0, '#ff4d2e'); bodyGrad.addColorStop(0.28, '#c8140d');
-        bodyGrad.addColorStop(0.75, '#190405'); bodyGrad.addColorStop(1, '#050507');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.moveTo(w*0.34, h); ctx.quadraticCurveTo(w*0.36, h*0.56, w*0.43, h*0.43);
+        const bg = ctx.createLinearGradient(w*0.34, h*0.28, w*0.68, h*0.96);
+        bg.addColorStop(0, '#ff4d2e'); bg.addColorStop(0.28, '#c8140d'); bg.addColorStop(0.75, '#190405'); bg.addColorStop(1, '#050507');
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.moveTo(w*0.34, h); ctx.quadraticCurveTo(w*0.36, h*0.56, w*0.43, h*0.43);
         ctx.quadraticCurveTo(w*0.41, h*0.26, w*0.51, h*0.26); ctx.quadraticCurveTo(w*0.59, h*0.27, w*0.57, h*0.42);
         ctx.lineTo(w*0.63, h*0.58); ctx.lineTo(w*0.72, h*0.69); ctx.lineTo(w*0.67, h*0.74);
         ctx.lineTo(w*0.54, h*0.68); ctx.lineTo(w*0.50, h); ctx.closePath(); ctx.fill();
 
         ctx.strokeStyle = 'rgba(255,115,70,0.9)'; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(w*0.53, h*0.27); ctx.quadraticCurveTo(w*0.58, h*0.34, w*0.56, h*0.44); ctx.stroke();
-
-        const sg = ctx.createLinearGradient(w*0.68, h*0.75, w*0.80, h*0.52);
-        sg.addColorStop(0, 'rgba(255,80,45,0.75)'); sg.addColorStop(1, 'rgba(255,220,200,0.98)');
-        ctx.strokeStyle = sg; ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(255,220,200,0.95)'; ctx.lineWidth = 5;
         ctx.beginPath(); ctx.moveTo(w*0.63, h*0.76); ctx.lineTo(w*0.74, h*0.76); ctx.lineTo(w*0.81, h*0.56); ctx.stroke();
-
-        const cone = ctx.createRadialGradient(w*0.76, h*0.63, 4, w*0.68, h*0.55, 220);
-        cone.addColorStop(0, 'rgba(255,120,80,' + (0.42 * pulse).toFixed(2) + ')'); cone.addColorStop(1, 'rgba(255,40,20,0)');
-        ctx.fillStyle = cone;
-        ctx.beginPath(); ctx.moveTo(w*0.74, h*0.76); ctx.lineTo(w*0.81, h*0.56); ctx.lineTo(w*0.48, h*0.30); ctx.lineTo(w*0.50, h*0.76); ctx.closePath(); ctx.fill();
-        ctx.restore();
 
         ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '400 20px Inter, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ['We build sites, brands,', 'and digital experiences', 'that feel alive, intentional,', 'and human.'].forEach((ln, idx) => ctx.fillText(ln, 44, 212 + idx * 27));
+        ['We build sites, brands,', 'and digital experiences', 'that feel alive, intentional,', 'and human.'].forEach((ln, i) => ctx.fillText(ln, 44, 212 + i*27));
 
-        ctx.save();
-        ctx.fillStyle = '#f8f8fa'; roundRectPath(ctx, 44, h - 134, 226, 76, 10); ctx.fill();
-        ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.arc(76, h - 96, 19, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.arc(76, h - 101, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(76, h - 83, 12, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#f8f8fa'; roundRect(ctx, 44, h - 134, 226, 76, 10); ctx.fill();
+        ctx.fillStyle = '#27272a'; ctx.beginPath(); ctx.arc(76, h - 96, 19, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.arc(76, h - 101, 7, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#111113'; ctx.font = '700 13px Inter, sans-serif'; ctx.fillText('LAURA TIMMONS', 105, h - 115);
         ctx.fillStyle = '#71717a'; ctx.font = '400 11px Inter, sans-serif'; ctx.fillText('Creative Director', 105, h - 97);
         ctx.fillStyle = '#ef4444'; ctx.fillRect(105, h - 77, 130, 3);
-        ctx.restore();
+      },
 
-        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '500 11px Inter, sans-serif'; ctx.textAlign = 'right';
-        ctx.fillText('01 / DIGITAL CRAFT', w - 44, h - 54);
-        ctx.fillText('40.7128° N', w - 44, 215);
-
-        if (state.mode === 'video') {
-          for (let b = 0; b < 24; b++) {
-            const amp = 8 + Math.abs(Math.sin(t * 5.2 + b * 0.45)) * 28;
-            ctx.fillStyle = 'rgba(255,70,50,0.72)';
-            ctx.fillRect(w - 220 + b * 7, h - 86 - amp, 3.5, amp);
-          }
-          drawVideoChrome(ctx, w, h, t, 'LIVE');
+      // 7 / 8 : Entrepreneurship / Physical Health / Mindset / Trading (White Card)
+      function drawCategories(ctx, w, h) {
+        ctx.fillStyle = '#f5f5f7'; ctx.fillRect(0, 0, w, h);
+        const padX = 56, rowH = (h - 72) / 4, startY = 36;
+        ctx.textBaseline = 'middle';
+        for (let i = 1; i < 4; i++) {
+          ctx.strokeStyle = '#e0e0e5'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(padX, startY + i*rowH); ctx.lineTo(w - padX, startY + i*rowH); ctx.stroke();
         }
+        const drawThumb = (img, x, y, s) => { ctx.save(); roundRect(ctx, x, y - s/2, s, s, 8); ctx.clip(); ctx.drawImage(img, x, y - s/2, s, s); ctx.restore(); };
+        const rows = [
+          { num: '01', draw: (cy) => {
+            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText('Entrepreneurship', padX+20, cy);
+            drawThumb(thumbs.suit, padX+20+ctx.measureText('Entrepreneurship').width+18, cy, 52);
+          }},
+          { num: '02', draw: (cy) => {
+            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX+95; ctx.fillText('Physical', x0, cy);
+            const w1 = ctx.measureText('Physical').width;
+            drawThumb(thumbs.fitness, x0+w1+16, cy, 52); ctx.fillText('Health', x0+w1+84, cy);
+          }},
+          { num: '03', draw: (cy) => {
+            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX+168; drawThumb(thumbs.mindset, x0, cy, 52); ctx.fillText('Mindset', x0+68, cy);
+          }},
+          { num: '04', draw: (cy) => {
+            ctx.fillStyle = '#141417'; ctx.font = '500 50px Inter, sans-serif'; ctx.textAlign = 'left';
+            const x0 = padX+220; ctx.fillText('Trading', x0, cy);
+            drawThumb(thumbs.trading, x0+ctx.measureText('Trading').width+16, cy, 52);
+          }}
+        ];
+        rows.forEach((r, idx) => {
+          const cy = startY + idx*rowH + rowH*0.5;
+          r.draw(cy);
+          ctx.fillStyle = '#d6d6dc'; ctx.font = '300 48px Inter, sans-serif'; ctx.textAlign = 'right';
+          ctx.fillText(r.num, w - padX, cy);
+        });
       },
 
-      cbdSeo(ctx, w, h, t) {
-        ctx.fillStyle = '#090b0a'; ctx.fillRect(0, 0, w, h);
-        const amb = ctx.createRadialGradient(w*0.28, h*0.46, 20, w*0.30, h*0.46, 380);
-        amb.addColorStop(0, 'rgba(34,197,94,0.22)'); amb.addColorStop(1, 'rgba(9,11,10,0)');
-        ctx.fillStyle = amb; ctx.fillRect(0, 0, w, h);
-
-        ctx.save();
-        ctx.translate(w*0.26, h*0.56);
-        ctx.rotate(-0.18 + (state.mode === 'video' ? Math.sin(t * 1.4) * 0.05 : 0));
-        ctx.strokeStyle = 'rgba(74,222,128,0.85)'; ctx.lineWidth = 3.5;
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 125); ctx.stroke();
-
-        [[0,250,34],[-0.46,215,30],[0.46,215,30],[-0.95,162,24],[0.95,162,24],[-1.42,105,16],[1.42,105,16]].forEach(([ang, len, wid]) => {
-          ctx.save(); ctx.rotate(ang);
-          const g = ctx.createLinearGradient(0, 0, 0, -len);
-          g.addColorStop(0, 'rgba(34,197,94,0.16)'); g.addColorStop(1, 'rgba(74,222,128,0.38)');
-          ctx.fillStyle = g; ctx.strokeStyle = 'rgba(134,239,172,0.78)'; ctx.lineWidth = 1.6;
-          ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(-wid,-len*0.45,0,-len); ctx.quadraticCurveTo(wid,-len*0.45,0,0);
-          ctx.fill(); ctx.stroke();
-          ctx.strokeStyle = 'rgba(74,222,128,0.35)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-len);
-          for (let r = 0.2; r < 0.9; r += 0.16) {
-            const ry = -len * r, rw = wid * Math.sin(r * Math.PI) * 0.78;
-            ctx.moveTo(-rw, ry); ctx.lineTo(0, ry - 12); ctx.lineTo(rw, ry);
-          }
-          ctx.stroke(); ctx.restore();
-        });
-        ctx.restore();
-
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.font = '800 72px "Anton", "Bebas Neue", Impact, sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText('CBD SEO', 148, 58); ctx.fillText("IT'S NOT JUST", 148, 130); ctx.fillText("TRAFFIC-IT'S", 148, 202);
-        ctx.fillStyle = '#4ade80';
-        ctx.fillText('YOUR GROWTH', 148, 274); ctx.fillText('STRATEGY', 148, 346);
-
-        ctx.fillStyle = 'rgba(255,255,255,0.62)'; ctx.font = '500 15px Inter, sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('WE HELP CANNABIS BRANDS RANK ORGANICALLY WITHOUT AD BANS', w * 0.5, h - 144);
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(64, h - 106); ctx.lineTo(w - 64, h - 106); ctx.stroke();
-
-        ['100% COMPLIANT', 'HIGH-INTENT SEO', 'MEASURABLE ROI'].forEach((label, idx) => {
-          const cx = w * (0.22 + idx * 0.28);
-          ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(cx - 88, h - 62, 13, 0, Math.PI * 2); ctx.stroke();
-          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 14px Inter, sans-serif'; ctx.textAlign = 'left';
-          ctx.fillText(label, cx - 66, h - 62);
-        });
-        drawVideoChrome(ctx, w, h, t, 'CASE');
-      },
-
-      restrictedSeo(ctx, w, h, t) {
+      // 8 / 8 : IN A RESTRICTED MARKET, SEO IS LEVERAGED
+      function drawRestrictedSeo(ctx, w, h) {
         ctx.fillStyle = '#0c0e0d'; ctx.fillRect(0, 0, w, h);
         const glow = ctx.createRadialGradient(w*0.72, h*0.78, 10, w*0.65, h*0.75, 460);
         glow.addColorStop(0, 'rgba(52,211,153,0.26)'); glow.addColorStop(1, 'rgba(12,14,13,0)');
@@ -521,143 +594,27 @@
 
         const count = 44, startX = 64, step = (w - 128) / count, baseY = h - 56;
         for (let i = 0; i < count; i++) {
-          const p = i / (count - 1);
-          const wave = state.mode === 'video' ? Math.sin(t * 3.8 + i * 0.35) * 14 * p : 0;
-          const barH = Math.max(12, Math.pow(p, 2.05) * 235 + wave);
+          const p = i / (count - 1), barH = Math.max(12, Math.pow(p, 2.05) * 235);
           const g = ctx.createLinearGradient(0, baseY - barH, 0, baseY);
-          g.addColorStop(0, p > 0.7 ? '#ecfdf5' : '#6ee7b7');
-          g.addColorStop(0.55, '#10b981'); g.addColorStop(1, 'rgba(16,185,129,0.08)');
-          ctx.fillStyle = g; ctx.fillRect(startX + i * step, baseY - barH, step * 0.56, barH);
+          g.addColorStop(0, p > 0.7 ? '#ecfdf5' : '#6ee7b7'); g.addColorStop(0.55, '#10b981'); g.addColorStop(1, 'rgba(16,185,129,0.08)');
+          ctx.fillStyle = g; ctx.fillRect(startX + i*step, baseY - barH, step*0.56, barH);
         }
-        drawVideoChrome(ctx, w, h, t, 'DATA');
-      },
-
-      nostalgia(ctx, w, h, t) {
-        ctx.fillStyle = '#0d0c0b'; ctx.fillRect(0, 0, w, h);
-        const sh = ctx.createLinearGradient(0, 0, w, h);
-        sh.addColorStop(0, 'rgba(255,200,140,0.14)'); sh.addColorStop(0.5, 'rgba(30,26,22,0.45)'); sh.addColorStop(1, 'rgba(0,0,0,0.92)');
-        ctx.fillStyle = sh; ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = 'rgba(255,215,170,0.14)';
-        for (let i = 0; i < 18; i++) {
-          const x = state.mode === 'video' ? ((t * 40 + i * 50) % w) : i * 56;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - 90, h); ctx.stroke();
-        }
-        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = '#ece8df'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.font = '700 132px "Playfair Display", Georgia, serif'; ctx.fillText('Nostalgia', 0, -76);
-        ctx.font = 'italic 600 112px "Playfair Display", Georgia, serif';
-        ctx.fillStyle = 'rgba(236,232,223,0.86)'; ctx.fillText('Riders', 0, 68);
-        ctx.restore();
-        drawVideoChrome(ctx, w, h, t, 'FILM');
-      },
-
-      atelier(ctx, w, h, t) {
-        ctx.fillStyle = '#08090b'; ctx.fillRect(0, 0, w, h);
-        const rad = ctx.createRadialGradient(w*0.5, h*0.5, 20, w*0.5, h*0.5, 420);
-        rad.addColorStop(0, 'rgba(148,163,184,0.25)'); rad.addColorStop(1, 'rgba(8,9,11,0)');
-        ctx.fillStyle = rad; ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(w*0.5, h*0.52, 165, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = '#f8fafc'; ctx.font = '700 92px "Bebas Neue", Impact, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ATELIER  07', w*0.5, h*0.46);
-        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '500 16px Inter, sans-serif';
-        ctx.fillText('SPATIAL BRAND ARCHITECTURE', w*0.5, h*0.60);
-        drawVideoChrome(ctx, w, h, t, 'REEL');
-      },
-
-      pulse(ctx, w, h, t) {
-        ctx.fillStyle = '#070709'; ctx.fillRect(0, 0, w, h);
-        const orb = ctx.createRadialGradient(w*0.68, h*0.48, 15, w*0.68, h*0.48, 280);
-        orb.addColorStop(0, '#fb923c'); orb.addColorStop(0.45, '#be123c'); orb.addColorStop(1, 'rgba(7,7,9,0)');
-        ctx.fillStyle = orb; ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#fff'; ctx.font = '800 88px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.fillText('KINETIC', 64, 165); ctx.fillStyle = 'rgba(255,255,255,0.48)'; ctx.fillText('SYSTEMS', 64, 260);
-        ctx.font = '400 18px Inter, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.72)';
-        ctx.fillText('Interactive Motion & WebGL Interfaces', 64, 385);
-        drawVideoChrome(ctx, w, h, t, 'MOTION');
-      },
-
-      form08(ctx, w, h, t) {
-        ctx.fillStyle = '#111215'; ctx.fillRect(0, 0, w, h);
-        const g = ctx.createLinearGradient(0, 0, w, h);
-        g.addColorStop(0, '#27272a'); g.addColorStop(1, '#09090b');
-        ctx.fillStyle = g; ctx.fillRect(42, 42, w - 84, h - 84);
-        ctx.fillStyle = '#fafafa'; ctx.font = '700 84px "Bebas Neue", sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('PURE FORM 08', 78, h - 84);
-        drawVideoChrome(ctx, w, h, t, '3D');
-      },
-
-      womanPhone(ctx, w, h, t) {
-        ctx.fillStyle = '#0f0c0b'; ctx.fillRect(0, 0, w, h);
-        const sg = ctx.createRadialGradient(w*0.56, h*0.36, 20, w*0.56, h*0.40, 380);
-        sg.addColorStop(0, '#f3b78f'); sg.addColorStop(0.35, '#9d5940'); sg.addColorStop(0.75, '#2b1815'); sg.addColorStop(1, '#0a0808');
-        ctx.fillStyle = sg; ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = 'rgba(255,198,162,0.72)';
-        ctx.beginPath(); ctx.ellipse(w*0.56, h*0.25, 110, 130, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(w*0.58, h*0.68, 210, 150, -0.1, 0, Math.PI * 2); ctx.fill();
-
-        const shift = state.mode === 'video' ? Math.sin(t * 2.2) * 8 : 0;
-        const pg = ctx.createRadialGradient(w*0.24, h*0.52 + shift, 8, w*0.24, h*0.52 + shift, 190);
-        pg.addColorStop(0, 'rgba(255,125,50,0.95)'); pg.addColorStop(0.45, 'rgba(234,65,30,0.45)'); pg.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = pg; ctx.fillRect(0, 0, w, h);
-        ctx.save(); ctx.translate(w*0.23, h*0.50 + shift); ctx.rotate(-0.14);
-        ctx.fillStyle = '#18181b'; roundRectPath(ctx, -42, -78, 84, 156, 14); ctx.fill();
-        ctx.fillStyle = '#fb923c'; roundRectPath(ctx, -36, -70, 72, 140, 10); ctx.fill();
-        ctx.restore();
-        ctx.fillStyle = 'rgba(12,12,14,0.78)'; ctx.fillRect(0, h - 125, w, 125);
-        ctx.fillStyle = '#fff'; ctx.font = '600 26px Inter, sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText('UGC Creator Campaign • Social First', 48, h - 64);
-      },
-
-      silverStacked(ctx, w, h) {
-        ctx.fillStyle = '#070709'; ctx.fillRect(0, 0, w, h);
-        for (let layer = 2; layer >= 0; layer--) {
-          const offset = layer * 24, shade = 155 + (2 - layer) * 32;
-          const g = ctx.createLinearGradient(0, 0, w, h);
-          g.addColorStop(0, `rgb(${shade+24},${shade+25},${shade+30})`);
-          g.addColorStop(1, `rgb(${shade-20},${shade-18},${shade-10})`);
-          ctx.fillStyle = g; roundRectPath(ctx, offset * 0.6, 0, w - offset * 1.2, h - (2 - layer) * 26, 28); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2; ctx.stroke();
-        }
-        const ac = ctx.createRadialGradient(w*0.25, h*0.45, 10, w*0.25, h*0.45, 220);
-        ac.addColorStop(0, 'rgba(249,115,22,0.48)'); ac.addColorStop(1, 'rgba(220,220,226,0)');
-        ctx.fillStyle = ac; ctx.fillRect(0, 0, w, h - 56);
-        ctx.fillStyle = 'rgba(20,20,24,0.72)'; ctx.font = '700 54px Inter, sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('ARCHIVE DECK', 64, h * 0.45);
-      },
-
-      master180(ctx, w, h) {
-        ctx.fillStyle = '#09090b'; ctx.fillRect(0, 0, w, h);
-        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(Math.PI);
-        ctx.fillStyle = '#f4f4f5'; ctx.font = '900 185px "Anton", "Bebas Neue", Impact, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MASTER  4', 0, -40);
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '500 22px Inter, sans-serif';
-        ctx.fillText('BRAND SYSTEM & DIRECTION', 0, 80); ctx.restore();
-      },
-
-      cbdSeo180(ctx, w, h, t) {
-        ctx.save(); ctx.translate(w*0.5, h*0.5); ctx.rotate(Math.PI); ctx.translate(-w*0.5, -h*0.5);
-        cardDrawers.cbdSeo(ctx, w, h, t);
-        ctx.restore();
       }
-    };
+    ];
 
     // -------------------------------------------------------------------------
-    // 4. Native WebGL Renderer + Custom Optical Shaders
+    // 4. WebGL Context, Helical Card Mesh & Optical Shader
     // -------------------------------------------------------------------------
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' })
             || canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' })
             || canvas.getContext('experimental-webgl', { antialias: true, alpha: false });
 
-    if (!gl) {
-      fallbackEl.style.display = 'grid';
-      return;
-    }
+    if (!gl) { fallbackEl.style.display = 'grid'; return; }
 
     container.appendChild(canvas);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.disable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -695,8 +652,7 @@
       uniform vec3 uCamPos;
       uniform float uAspect;
       uniform float uCornerRadius;
-      uniform float uIsBackground;
-      uniform float uChromaScale;
+      uniform float uFade;
       uniform float uHover;
 
       float roundedRectSDF(vec2 p, vec2 b, float r) {
@@ -704,17 +660,17 @@
         return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
       }
 
-      vec3 sampleBokeh(sampler2D tex, vec2 uv, float blurAmt, float chromaAmt) {
-        if (blurAmt < 0.015 && chromaAmt < 0.0005) return texture2D(tex, uv).rgb;
+      vec3 sampleOpticalBokeh(sampler2D tex, vec2 uv, float blurAmt, float chromaAmt) {
+        if (blurAmt < 0.02 && chromaAmt < 0.0005) return texture2D(tex, uv).rgb;
         vec3 accum = vec3(0.0);
         float total = 0.0;
         for (int i = -3; i <= 3; i++) {
           float fi = float(i);
           float w = 1.0 - abs(fi) * 0.20;
-          vec2 tb = uv + vec2(fi * blurAmt * 0.0065, fi * blurAmt * 0.0018);
-          vec2 uvR = clamp(tb + vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+          vec2 tb = uv + vec2(fi * blurAmt * 0.0068, fi * blurAmt * 0.0022);
+          vec2 uvR = clamp(tb + vec2(chromaAmt, chromaAmt * 0.18), vec2(0.002), vec2(0.998));
           vec2 uvG = clamp(tb, vec2(0.002), vec2(0.998));
-          vec2 uvB = clamp(tb - vec2(chromaAmt, chromaAmt * 0.16), vec2(0.002), vec2(0.998));
+          vec2 uvB = clamp(tb - vec2(chromaAmt, chromaAmt * 0.18), vec2(0.002), vec2(0.998));
           accum.r += texture2D(tex, uvR).r * w;
           accum.g += texture2D(tex, uvG).g * w;
           accum.b += texture2D(tex, uvB).b * w;
@@ -728,27 +684,29 @@
         vec2 b = vec2(uAspect * 0.5, 0.5);
         float dist = roundedRectSDF(p, b, uCornerRadius);
         float edgeAlpha = 1.0 - smoothstep(-0.0045, 0.0045, dist);
-        if (edgeAlpha < 0.03) discard;
+        if (edgeAlpha < 0.03 || uFade < 0.01) discard;
 
         vec3 viewDir = normalize(uCamPos - vWorldPos);
         vec3 nrm = normalize(vNormalWorld);
         float facing = dot(nrm, viewDir);
-        float frontVis = smoothstep(-0.18, 0.24, facing);
-        if (frontVis < 0.01) discard;
-
+        float isBack = step(facing, 0.0);
         float grazing = 1.0 - clamp(abs(facing), 0.0, 1.0);
-        float edgeCurve = smoothstep(0.16, 0.85, grazing);
-        float blurAmt = uIsBackground > 0.5 ? (0.95 + 1.15 * grazing) * uChromaScale : (edgeCurve * 1.10) * uChromaScale;
-        float chromaAmt = uIsBackground > 0.5 ? (0.011 + 0.013 * grazing) * uChromaScale : (edgeCurve * 0.014) * uChromaScale;
 
-        vec3 color = sampleBokeh(uMap, vUv, blurAmt, chromaAmt);
-        float rim = smoothstep(0.45, 0.92, grazing) * 0.09;
-        color += vec3(rim) * (1.0 - uIsBackground * 0.65);
+        // Front center is razor sharp; grazing flanks and back faces get authentic RGB dispersion + optical bokeh
+        float edgeBlur = smoothstep(0.18, 0.88, grazing);
+        float blurAmt = mix(edgeBlur * 1.15, 0.95 + 0.85 * grazing, isBack);
+        float chromaAmt = mix(edgeBlur * 0.014, 0.011 + 0.011 * grazing, isBack);
+
+        vec3 color = sampleOpticalBokeh(uMap, vUv, blurAmt, chromaAmt);
+
+        float rim = smoothstep(0.45, 0.92, grazing) * 0.08 * (1.0 - isBack);
+        color += vec3(rim);
         color *= (1.0 + uHover * 0.08);
-        float depthDim = uIsBackground > 0.5 ? (0.76 - 0.22 * grazing) : 1.0;
 
-        float alpha = edgeAlpha * frontVis;
-        gl_FragColor = vec4(color * depthDim * alpha, alpha);
+        // Back side gently dims into atmospheric depth just like the Framer video
+        float backDim = mix(1.0, 0.72 - 0.22 * grazing, isBack);
+        float alpha = edgeAlpha * uFade;
+        gl_FragColor = vec4(color * backDim * alpha, alpha);
       }
     `;
 
@@ -776,19 +734,19 @@
       uMap: gl.getUniformLocation(prog, 'uMap'),
       uAspect: gl.getUniformLocation(prog, 'uAspect'),
       uCornerRadius: gl.getUniformLocation(prog, 'uCornerRadius'),
-      uIsBackground: gl.getUniformLocation(prog, 'uIsBackground'),
-      uChromaScale: gl.getUniformLocation(prog, 'uChromaScale'),
+      uFade: gl.getUniformLocation(prog, 'uFade'),
       uHover: gl.getUniformLocation(prog, 'uHover')
     };
 
-    function buildCurvedMesh(width, height, radius, segX = 34, segY = 14) {
-      const verts = [], indices = [];
-      const arc = width / radius;
+    // Builds one card bent seamlessly along the helical ribbon (py slopes along -pitch * th)
+    function buildHelicalMesh(width, height, radius, pitch, segX = 36, segY = 14) {
+      const verts = [], indices = [], arc = width / radius;
       for (let iy = 0; iy <= segY; iy++) {
-        const fy = iy / segY, py = (fy - 0.5) * height;
+        const fy = iy / segY, ly = (fy - 0.5) * height;
         for (let ix = 0; ix <= segX; ix++) {
           const fx = ix / segX, th = (fx - 0.5) * arc;
           const nx = Math.sin(th), nz = Math.cos(th);
+          const py = ly - pitch * th;
           verts.push(radius * nx, py, radius * nz, nx, 0, nz, fx, fy);
         }
       }
@@ -808,12 +766,15 @@
       return { vbo, ibo, count: indices.length };
     }
 
-    function createCardTexture(drawerKey) {
+    const sharedMesh = buildHelicalMesh(CARD_W, CARD_H, RADIUS, SPIRAL_PITCH);
+
+    // Pre-generate all 8 POT textures (1024x512)
+    const projectTex = projects.map((drawFn) => {
       const c = document.createElement('canvas');
       c.width = TEX_W; c.height = TEX_H;
       const ctx = c.getContext('2d');
-      ctx.setTransform(1, 0, 0, TEX_H / LOGICAL_H, 0, 0);
-      cardDrawers[drawerKey](ctx, LOGICAL_W, LOGICAL_H, 0);
+      ctx.setTransform(1, 0, 0, TEX_H / LOG_H, 0, 0);
+      drawFn(ctx, LOG_W, LOG_H);
 
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -824,122 +785,122 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       if (anisoExt) gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
-      return { canvas: c, ctx, tex, drawerKey };
+      return { canvas: c, ctx, tex, drawFn };
+    });
+
+    function refreshAllTextures() {
+      projectTex.forEach((pt) => {
+        pt.ctx.setTransform(1, 0, 0, TEX_H / LOG_H, 0, 0);
+        pt.drawFn(pt.ctx, LOG_W, LOG_H);
+        gl.bindTexture(gl.TEXTURE_2D, pt.tex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, pt.canvas);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      });
+      if (state.modalOpen) renderLightbox();
     }
 
-    const MAIN_R = 3.85, BACK_R = 4.35;
-    const cards = [];
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(refreshAllTextures).catch(() => {});
+    }
 
-    const mainDefs = [
-      { key: 'cbdSeo', w: 2.38, h: 1.60 },
-      { key: 'heartline', w: 2.86, h: 1.54 },
-      { key: 'categories', w: 2.68, h: 1.54 },
-      { key: 'restrictedSeo', w: 2.68, h: 1.54 },
-      { key: 'nostalgia', w: 1.98, h: 1.70 },
-      { key: 'atelier', w: 2.55, h: 1.54 },
-      { key: 'pulse', w: 2.55, h: 1.54 },
-      { key: 'form08', w: 2.50, h: 1.54 }
-    ];
-
-    mainDefs.forEach((d, i) => {
-      cards.push({
-        tier: 'main', isBackground: false, radius: MAIN_R, w: d.w, h: d.h, aspect: d.w / d.h,
-        slotAngle: i * ((Math.PI * 2) / mainDefs.length),
-        mesh: buildCurvedMesh(d.w, d.h, MAIN_R),
-        texObj: createCardTexture(d.key),
-        hoverVal: 0, model: null, depthZ: 0
-      });
-    });
-
-    const topDefs = [
-      { key: 'womanPhone', w: 2.75, h: 1.55 },
-      { key: 'silverStacked', w: 2.82, h: 1.55 },
-      { key: 'atelier', w: 2.60, h: 1.50 },
-      { key: 'pulse', w: 2.60, h: 1.50 },
-      { key: 'womanPhone', w: 2.75, h: 1.55 },
-      { key: 'cbdSeo180', w: 2.40, h: 1.55 }
-    ];
-
-    topDefs.forEach((d, i) => {
-      cards.push({
-        tier: 'top', isBackground: true, radius: BACK_R, w: d.w, h: d.h, aspect: d.w / d.h,
-        slotAngle: i * ((Math.PI * 2) / topDefs.length),
-        mesh: buildCurvedMesh(d.w, d.h, BACK_R),
-        texObj: createCardTexture(d.key),
-        hoverVal: 0, model: null, depthZ: 0
-      });
-    });
-
-    const bottomDefs = [
-      { key: 'master180', w: 2.75, h: 1.55 },
-      { key: 'restrictedSeo', w: 2.65, h: 1.50 },
-      { key: 'form08', w: 2.60, h: 1.50 },
-      { key: 'master180', w: 2.75, h: 1.55 },
-      { key: 'pulse', w: 2.60, h: 1.50 },
-      { key: 'atelier', w: 2.60, h: 1.50 }
-    ];
-
-    bottomDefs.forEach((d, i) => {
-      cards.push({
-        tier: 'bottom', isBackground: true, radius: BACK_R, w: d.w, h: d.h, aspect: d.w / d.h,
-        slotAngle: i * ((Math.PI * 2) / bottomDefs.length) + 0.35,
-        mesh: buildCurvedMesh(d.w, d.h, BACK_R),
-        texObj: createCardTexture(d.key),
-        hoverVal: 0, model: null, depthZ: 0
-      });
-    });
-
-    function redrawAllTextures(time) {
-      for (const card of cards) {
-        const { canvas: c, ctx, tex, drawerKey } = card.texObj;
-        ctx.setTransform(1, 0, 0, TEX_H / LOGICAL_H, 0, 0);
-        cardDrawers[drawerKey](ctx, LOGICAL_W, LOGICAL_H, time);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, c);
-        gl.generateMipmap(gl.TEXTURE_2D);
-      }
+    // 16 spiral slots wrapping seamlessly around [-HALF_SPAN, +HALF_SPAN]
+    const slots = [];
+    for (let i = 0; i < TOTAL_SLOTS; i++) {
+      slots.push({ index: i, projectIndex: i % 8, relTheta: 0, hoverVal: 0, model: null, depthZ: 0, fade: 1 });
     }
 
     // -------------------------------------------------------------------------
-    // 5. Analytic Curved-Cylinder Ray Intersection for Exact Card Hover/Click
+    // 5. Analytic Curved Helical Ray Hit-Testing
     // -------------------------------------------------------------------------
     function hitTestFrontCards(ndcX, ndcY, invVP) {
       const nearPt = unproject(ndcX, ndcY, -1, invVP);
       const farPt = unproject(ndcX, ndcY, 1, invVP);
-      const rDx = farPt[0] - nearPt[0], rDy = farPt[1] - nearPt[1], rDz = farPt[2] - nearPt[2];
+      const rDx = farPt[0]-nearPt[0], rDy = farPt[1]-nearPt[1], rDz = farPt[2]-nearPt[2];
+      let best = null, bestT = Infinity;
 
-      let bestCard = null, bestT = Infinity;
-      for (const card of cards) {
-        if (card.isBackground || !card.model) continue;
-        const invM = mat4Invert(card.model);
+      for (const slot of slots) {
+        // Only front-facing hero arc is clickable/hoverable
+        if (!slot.model || Math.abs(slot.relTheta) > 1.38) continue;
+        const invM = mat4Invert(slot.model);
         if (!invM) continue;
-        const ox = invM[0]*nearPt[0] + invM[4]*nearPt[1] + invM[8]*nearPt[2] + invM[12];
-        const oy = invM[1]*nearPt[0] + invM[5]*nearPt[1] + invM[9]*nearPt[2] + invM[13];
-        const oz = invM[2]*nearPt[0] + invM[6]*nearPt[1] + invM[10]*nearPt[2] + invM[14];
-        const dx = invM[0]*rDx + invM[4]*rDy + invM[8]*rDz;
-        const dy = invM[1]*rDx + invM[5]*rDy + invM[9]*rDz;
-        const dz = invM[2]*rDx + invM[6]*rDy + invM[10]*rDz;
+        const ox = invM[0]*nearPt[0]+invM[4]*nearPt[1]+invM[8]*nearPt[2]+invM[12];
+        const oy = invM[1]*nearPt[0]+invM[5]*nearPt[1]+invM[9]*nearPt[2]+invM[13];
+        const oz = invM[2]*nearPt[0]+invM[6]*nearPt[1]+invM[10]*nearPt[2]+invM[14];
+        const dx = invM[0]*rDx+invM[4]*rDy+invM[8]*rDz;
+        const dy = invM[1]*rDx+invM[5]*rDy+invM[9]*rDz;
+        const dz = invM[2]*rDx+invM[6]*rDy+invM[10]*rDz;
 
-        const A = dx*dx + dz*dz, B = 2 * (ox*dx + oz*dz), C = ox*ox + oz*oz - card.radius*card.radius;
+        const A = dx*dx + dz*dz, B = 2*(ox*dx + oz*dz), C = ox*ox + oz*oz - RADIUS*RADIUS;
         const disc = B*B - 4*A*C;
         if (disc < 0 || A < 1e-8) continue;
-        const sq = Math.sqrt(disc);
-        const t = (-B - sq) / (2 * A);
+        const t = (-B - Math.sqrt(disc)) / (2 * A);
         if (t <= 0 || t >= bestT) continue;
 
-        const hx = ox + dx * t, hy = oy + dy * t, hz = oz + dz * t;
+        const hx = ox + dx*t, hy = oy + dy*t, hz = oz + dz*t;
         if (hz < 0) continue;
-        const halfArc = (card.w / card.radius) * 0.5;
-        if (Math.abs(hy) <= card.h * 0.5 && Math.abs(Math.atan2(hx, hz)) <= halfArc) {
+        const th = Math.atan2(hx, hz);
+        const halfArc = (CARD_W / RADIUS) * 0.5;
+        const localY = hy + SPIRAL_PITCH * th;
+        if (Math.abs(th) <= halfArc && Math.abs(localY) <= CARD_H * 0.5) {
           bestT = t;
-          bestCard = card;
+          best = slot;
         }
       }
-      return bestCard;
+      return best;
     }
 
     // -------------------------------------------------------------------------
-    // 6. Interactions & UI Controls
+    // 6. Framer Lightbox Modal Controls
+    // -------------------------------------------------------------------------
+    const lightbox = document.getElementById('lightbox');
+    const lightboxCanvas = document.getElementById('lightboxCanvas');
+    const lightboxCtx = lightboxCanvas.getContext('2d');
+    const lightboxCounter = document.getElementById('lightboxCounter');
+
+    function renderLightbox() {
+      const idx = ((state.modalIndex % 8) + 8) % 8;
+      lightboxCtx.setTransform(1280 / LOG_W, 0, 0, 800 / LOG_H, 0, 0);
+      projects[idx](lightboxCtx, LOG_W, LOG_H);
+      lightboxCounter.textContent = (idx + 1) + ' / 8';
+    }
+
+    function openLightbox(projIdx) {
+      state.modalIndex = projIdx;
+      state.modalOpen = true;
+      renderLightbox();
+      lightbox.classList.add('open');
+      lightbox.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeLightbox() {
+      state.modalOpen = false;
+      lightbox.classList.remove('open');
+      lightbox.setAttribute('aria-hidden', 'true');
+    }
+
+    document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+    document.getElementById('lightboxPrev').addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.modalIndex = (state.modalIndex + 7) % 8;
+      renderLightbox();
+    });
+    document.getElementById('lightboxNext').addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.modalIndex = (state.modalIndex + 1) % 8;
+      renderLightbox();
+    });
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (!state.modalOpen) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') { state.modalIndex = (state.modalIndex + 7) % 8; renderLightbox(); }
+      if (e.key === 'ArrowRight') { state.modalIndex = (state.modalIndex + 1) % 8; renderLightbox(); }
+    });
+
+    // -------------------------------------------------------------------------
+    // 7. Pointer, Touch, Wheel & Resize Handlers
     // -------------------------------------------------------------------------
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -951,10 +912,11 @@
     resize();
 
     canvas.addEventListener('pointerdown', (e) => {
+      if (state.modalOpen) return;
       state.isDragging = true;
-      state.dragDistance = 0;
-      state.targetAngle = null;
+      state.dragDist = 0;
       state.lastX = e.clientX;
+      state.lastY = e.clientY;
       state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
       state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
       container.classList.add('is-dragging');
@@ -963,185 +925,122 @@
     window.addEventListener('pointermove', (e) => {
       state.ndcX = (e.clientX / window.innerWidth) * 2 - 1;
       state.ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
-      if (state.isDragging) {
-        const dx = e.clientX - state.lastX;
-        state.dragDistance += Math.abs(dx);
-        const deltaAngle = (dx / window.innerWidth) * 3.4;
-        state.mainAngle += deltaAngle;
-        state.velocity = deltaAngle * 42;
-        state.lastX = e.clientX;
-      }
+      if (!state.isDragging || state.modalOpen) return;
+
+      const dx = e.clientX - state.lastX;
+      const dy = e.clientY - state.lastY;
+      state.dragDist += Math.hypot(dx, dy);
+      // Supports natural horizontal or vertical swipe along the spiral
+      const delta = (dx - dy * 0.45) / Math.max(window.innerWidth, 420) * 3.8;
+      state.scrollAngle += delta;
+      state.velocity = delta * 36;
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
     });
 
     const endDrag = () => {
       if (!state.isDragging) return;
       state.isDragging = false;
       container.classList.remove('is-dragging');
-      if (state.dragDistance < 6 && state.hoveredCard) {
-        const twoPi = Math.PI * 2, target = -state.hoveredCard.slotAngle;
-        const diff = ((target - state.mainAngle + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
-        state.targetAngle = state.mainAngle + diff;
-        state.velocity = 0;
+      if (state.dragDist < 7 && state.hoveredSlot) {
+        openLightbox(state.hoveredSlot.projectIndex);
       }
     };
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
 
-    canvas.addEventListener('wheel', (e) => {
+    window.addEventListener('wheel', (e) => {
+      if (state.modalOpen) return;
       e.preventDefault();
-      state.targetAngle = null;
-      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 0.0014;
-      state.velocity += delta * 18;
+      const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? -e.deltaX : -e.deltaY;
+      state.velocity += raw * 0.012;
     }, { passive: false });
 
-    const modePill = document.getElementById('modePill');
-    const btnPhoto = document.getElementById('btnPhoto');
-    const btnVideo = document.getElementById('btnVideo');
-    function setMode(next) {
-      if (state.mode === next) return;
-      state.mode = next;
-      modePill.dataset.mode = next;
-      btnPhoto.classList.toggle('active', next === 'photo');
-      btnVideo.classList.toggle('active', next === 'video');
-      btnPhoto.setAttribute('aria-selected', String(next === 'photo'));
-      btnVideo.setAttribute('aria-selected', String(next === 'video'));
-      state.velocity += next === 'video' ? 0.55 : -0.45;
-      redrawAllTextures(state.elapsed);
-    }
-    btnPhoto.addEventListener('click', () => setMode('photo'));
-    btnVideo.addEventListener('click', () => setMode('video'));
-
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsPanel = document.getElementById('settingsPanel');
-    const ctrlSpeed = document.getElementById('ctrlSpeed');
-    const ctrlTilt = document.getElementById('ctrlTilt');
-    const ctrlChroma = document.getElementById('ctrlChroma');
-    const ctrlParallax = document.getElementById('ctrlParallax');
-
-    settingsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = settingsPanel.classList.toggle('open');
-      settingsBtn.classList.toggle('active', open);
-      settingsPanel.setAttribute('aria-hidden', String(!open));
-    });
-    window.addEventListener('click', (e) => {
-      if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
-        settingsPanel.classList.remove('open');
-        settingsBtn.classList.remove('active');
-        settingsPanel.setAttribute('aria-hidden', 'true');
-      }
-    });
-    ctrlSpeed.addEventListener('input', () => { state.autoSpeed = parseFloat(ctrlSpeed.value); document.getElementById('valSpeed').textContent = state.autoSpeed.toFixed(2); });
-    ctrlTilt.addEventListener('input', () => { state.tiltDeg = parseFloat(ctrlTilt.value); document.getElementById('valTilt').textContent = state.tiltDeg + '°'; });
-    ctrlChroma.addEventListener('input', () => { state.chromaScale = parseFloat(ctrlChroma.value); document.getElementById('valChroma').textContent = state.chromaScale.toFixed(2); });
-    ctrlParallax.addEventListener('input', () => { state.parallaxScale = parseFloat(ctrlParallax.value); document.getElementById('valParallax').textContent = state.parallaxScale.toFixed(2); });
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      state.autoSpeed = 0.14; state.tiltDeg = -12; state.chromaScale = 1.0; state.parallaxScale = 1.0;
-      ctrlSpeed.value = '0.14'; ctrlTilt.value = '-12'; ctrlChroma.value = '1.0'; ctrlParallax.value = '1.0';
-      document.getElementById('valSpeed').textContent = '0.14';
-      document.getElementById('valTilt').textContent = '-12°';
-      document.getElementById('valChroma').textContent = '1.00';
-      document.getElementById('valParallax').textContent = '1.00';
-    });
-
-    // Refresh textures silently once Google Fonts finish loading
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => redrawAllTextures(state.elapsed)).catch(() => {});
-    }
-
     // -------------------------------------------------------------------------
-    // 7. Render Loop
+    // 8. Animation Loop
     // -------------------------------------------------------------------------
     let prev = performance.now();
     function frame(now) {
       requestAnimationFrame(frame);
       const dt = Math.min((now - prev) / 1000, 0.05);
       prev = now;
-      state.elapsed += dt;
 
-      if (!state.isDragging) {
-        if (state.targetAngle !== null) {
-          const diff = state.targetAngle - state.mainAngle;
-          state.mainAngle += diff * Math.min(1, dt * 6.5);
-          if (Math.abs(diff) < 0.002) state.targetAngle = null;
-        } else {
-          state.mainAngle += (state.autoSpeed + state.velocity) * dt;
-          state.velocity *= Math.pow(0.05, dt);
-        }
+      if (!state.isDragging && !state.modalOpen) {
+        state.scrollAngle += (state.autoDrift + state.velocity) * dt;
+        state.velocity *= Math.pow(0.05, dt);
+      } else if (state.modalOpen) {
+        state.velocity *= Math.pow(0.02, dt);
       }
 
-      const lerpAlpha = Math.min(1, dt * 5.2);
-      state.smoothX += (state.ndcX - state.smoothX) * lerpAlpha;
-      state.smoothY += (state.ndcY - state.smoothY) * lerpAlpha;
-      state.currentTiltDeg += (state.tiltDeg - state.currentTiltDeg) * Math.min(1, dt * 8);
+      const lAlpha = Math.min(1, dt * 5.0);
+      state.smoothX += (state.ndcX - state.smoothX) * lAlpha;
+      state.smoothY += (state.ndcY - state.smoothY) * lAlpha;
 
       const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-      const baseZ = aspect < 1.05 ? 7.95 / Math.max(0.50, aspect * 0.88) : 7.95;
-      const pS = state.parallaxScale;
-      const camPos = [-state.smoothX * 0.22 * pS, -0.18 + state.smoothY * 0.24 * pS, baseZ];
+      const camZ = aspect < 1.05 ? 8.45 / Math.max(0.50, aspect * 0.88) : 8.45;
+      const camPos = [-state.smoothX * 0.25, -0.06 + state.smoothY * 0.28, camZ];
 
       const proj = mat4Perspective((38 * Math.PI) / 180, aspect, 0.1, 60);
-      const view = mat4LookAt(camPos, [0, 0.04, 0], [0, 1, 0]);
+      const view = mat4LookAt(camPos, [0, 0, 0], [0, 1, 0]);
       const viewProj = mat4Mul(proj, view);
       const invVP = mat4Invert(viewProj);
 
-      const stageM = mat4TRS(0, 0, 0, -state.smoothY * 0.09 * pS, state.smoothX * 0.11 * pS, 0);
-      const mainM = mat4Mul(stageM, mat4TRS(0, 0, 0, -0.095, state.mainAngle, (state.currentTiltDeg * Math.PI) / 180));
-      const topM  = mat4Mul(stageM, mat4TRS(0, 1.56, -1.25, 0.08, -state.mainAngle * 0.65 - 1.1, (9.5 * Math.PI) / 180));
-      const botM  = mat4Mul(stageM, mat4TRS(0, -1.62, -1.25, -0.08, state.mainAngle * 0.55 + 0.65, (9.5 * Math.PI) / 180));
+      // Gentle camera/stage mouse tilt
+      const stageM = mat4TRS(0, 0, 0, -state.smoothY * 0.08, state.smoothX * 0.10, 0);
 
-      for (const card of cards) {
-        const tierM = card.tier === 'main' ? mainM : (card.tier === 'top' ? topM : botM);
-        card.model = mat4Mul(tierM, mat4TRS(0, 0, 0, 0, card.slotAngle, 0));
-        // Card center in world space is local (0, 0, radius)
-        const cz = card.model[8] * card.radius + card.model[14];
-        card.depthZ = cz;
+      const totalSpan = TOTAL_SLOTS * STEP_ANGLE;
+      for (const slot of slots) {
+        const raw = slot.index * STEP_ANGLE + state.scrollAngle;
+        const wrapped = ((raw + HALF_SPAN) % totalSpan + totalSpan) % totalSpan - HALF_SPAN;
+        slot.relTheta = wrapped;
+
+        const yPos = -SPIRAL_PITCH * wrapped;
+        slot.model = mat4Mul(stageM, mat4TRS(0, yPos, 0, 0, wrapped, 0));
+        slot.depthZ = slot.model[8] * RADIUS + slot.model[14];
+
+        // Smoothly fade out far beyond +/- 255 deg so wrapping is invisible
+        const absT = Math.abs(wrapped);
+        slot.fade = absT < 3.6 ? 1.0 : Math.max(0, 1.0 - (absT - 3.6) / 1.15);
       }
 
-      if (!state.isDragging && invVP) {
-        state.hoveredCard = hitTestFrontCards(state.ndcX, state.ndcY, invVP);
-        container.classList.toggle('is-hovering', Boolean(state.hoveredCard));
+      if (!state.isDragging && !state.modalOpen && invVP) {
+        state.hoveredSlot = hitTestFrontCards(state.ndcX, state.ndcY, invVP);
+        container.classList.toggle('is-hovering', Boolean(state.hoveredSlot));
       } else {
-        state.hoveredCard = null;
+        state.hoveredSlot = null;
         container.classList.remove('is-hovering');
-      }
-
-      if (state.mode === 'video' && now - state.lastVideoDraw > 33) {
-        state.lastVideoDraw = now;
-        redrawAllTextures(state.elapsed);
       }
 
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(loc.uViewProj, false, viewProj);
       gl.uniform3fv(loc.uCamPos, camPos);
+      gl.uniform1f(loc.uAspect, CARD_W / CARD_H);
       gl.uniform1f(loc.uCornerRadius, 0.068);
-      gl.uniform1f(loc.uChromaScale, state.chromaScale);
 
-      // Sort back-to-front for flawless overlapping transparency & depth occlusion
-      const sorted = cards.slice().sort((a, b) => a.depthZ - b.depthZ);
-      for (const card of sorted) {
-        const targetHover = !card.isBackground && card === state.hoveredCard ? 1.0 : 0.0;
-        card.hoverVal += (targetHover - card.hoverVal) * Math.min(1, dt * 10);
+      gl.bindBuffer(gl.ARRAY_BUFFER, sharedMesh.vbo);
+      gl.enableVertexAttribArray(loc.aPos);
+      gl.vertexAttribPointer(loc.aPos, 3, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(loc.aNorm);
+      gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 32, 12);
+      gl.enableVertexAttribArray(loc.aUv);
+      gl.vertexAttribPointer(loc.aUv, 2, gl.FLOAT, false, 32, 24);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sharedMesh.ibo);
 
-        gl.uniformMatrix4fv(loc.uModel, false, card.model);
-        gl.uniform1f(loc.uAspect, card.aspect);
-        gl.uniform1f(loc.uIsBackground, card.isBackground ? 1.0 : 0.0);
-        gl.uniform1f(loc.uHover, card.hoverVal);
+      const sorted = slots.slice().sort((a, b) => a.depthZ - b.depthZ);
+      for (const slot of sorted) {
+        if (slot.fade <= 0.01) continue;
+        const targetH = slot === state.hoveredSlot ? 1.0 : 0.0;
+        slot.hoverVal += (targetH - slot.hoverVal) * Math.min(1, dt * 10);
+
+        gl.uniformMatrix4fv(loc.uModel, false, slot.model);
+        gl.uniform1f(loc.uFade, slot.fade);
+        gl.uniform1f(loc.uHover, slot.hoverVal);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, card.texObj.tex);
+        gl.bindTexture(gl.TEXTURE_2D, projectTex[slot.projectIndex].tex);
         gl.uniform1i(loc.uMap, 0);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, card.mesh.vbo);
-        gl.enableVertexAttribArray(loc.aPos);
-        gl.vertexAttribPointer(loc.aPos, 3, gl.FLOAT, false, 32, 0);
-        gl.enableVertexAttribArray(loc.aNorm);
-        gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 32, 12);
-        gl.enableVertexAttribArray(loc.aUv);
-        gl.vertexAttribPointer(loc.aUv, 2, gl.FLOAT, false, 32, 24);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, card.mesh.ibo);
-        gl.drawElements(gl.TRIANGLES, card.mesh.count, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, sharedMesh.count, gl.UNSIGNED_SHORT, 0);
       }
     }
 
